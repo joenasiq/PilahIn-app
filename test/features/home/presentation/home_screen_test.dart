@@ -8,6 +8,10 @@ import 'package:pilahin_app/features/auth/presentation/auth_controller.dart';
 import 'package:pilahin_app/features/scan/data/scan_camera_service.dart';
 import 'package:pilahin_app/features/scan/data/gallery_picker_service.dart';
 import 'package:pilahin_app/features/scan/presentation/scan_controller.dart';
+import 'package:pilahin_app/features/history/presentation/history_provider.dart';
+import '../../history/helpers/fake_history_repository.dart';
+import 'package:pilahin_app/features/gamification/presentation/gamification_provider.dart';
+import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
 
 class _MockCameraService implements ScanCameraService {
   @override Future<void> initialize() async {}
@@ -37,6 +41,8 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(prefs),
           scanCameraServiceProvider.overrideWithValue(_MockCameraService()),
           galleryPickerServiceProvider.overrideWithValue(_MockGalleryService()),
+          historyRepositoryProvider.overrideWithValue(FakeHistoryRepository()),
+          gamificationRepositoryProvider.overrideWithValue(MockGamificationRepository()),
         ],
         child: const App(),
       ),
@@ -68,10 +74,11 @@ void main() {
       // Tap tombol Riwayat
       await tester.ensureVisible(find.text('Riwayat'));
       await tester.tap(find.text('Riwayat'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
-      // Harusnya tampil placeholder HistoryScreen
-      expect(find.text('HistoryScreen'), findsWidgets);
+      // Harusnya tampil placeholder HistoryScreen atau riwayat
+      expect(find.text('Riwayat Pemindaian'), findsWidgets);
     });
 
     testWidgets('pindah tab bottom nav menjaga state', (tester) async {
@@ -80,15 +87,18 @@ void main() {
 
       // Pindah ke tab Pindai
       await tester.tap(find.text('Pindai').last);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
       // Tampil layar ScanScreen yang asli
       expect(find.text('Pindai Sampah'), findsWidgets);
 
       // Pindah ke tab Profil
       await tester.tap(find.text('Profil').last);
-      await tester.pumpAndSettle();
-      expect(find.text('ProfileScreen'), findsWidgets);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      
+      expect(find.text('Keluar'), findsWidgets);
     });
   });
 }

@@ -53,6 +53,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
+          tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
           onPressed: () {
             // Kembali ke tab beranda
@@ -65,6 +66,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
         actions: [
           if (scanState.status == ScanStatus.ready)
             IconButton(
+              tooltip: scanState.isFlashOn ? 'Matikan flash' : 'Nyalakan flash',
               icon: Icon(
                 scanState.isFlashOn ? Icons.flash_on : Icons.flash_off,
                 color: scanState.isFlashOn ? Colors.yellow : Colors.grey,
@@ -207,6 +209,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
+            tooltip: 'Buka galeri',
             icon: const Icon(Icons.image_outlined, size: 32, color: Colors.grey),
             onPressed: () async {
               final path = await ref.read(scanControllerProvider.notifier).pickFromGallery();
@@ -224,25 +227,30 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                     }
                   }
                 : null,
-            child: Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.blue.withValues(alpha: 0.5), width: 4),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
+            child: Semantics(
+              label: 'Ambil foto',
+              button: true,
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.5), width: 4),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
           IconButton(
+            tooltip: 'Pengaturan',
             icon: const Icon(Icons.settings_outlined, size: 32, color: Colors.grey),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(

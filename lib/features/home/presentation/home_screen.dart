@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_constants.dart';
 
 import 'home_provider.dart';
 import 'widgets/level_card.dart';
@@ -28,8 +29,10 @@ class HomeScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LevelCard(summary: summary),
-                const SizedBox(height: 24),
+                if (AppConstants.gamificationEnabled) ...[
+                  LevelCard(summary: summary),
+                  const SizedBox(height: 24),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -56,31 +59,33 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                StreakCard(streakDays: summary.streakDays),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Misi Hari Ini',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                if (AppConstants.gamificationEnabled) ...[
+                  const SizedBox(height: 24),
+                  StreakCard(streakDays: summary.streakDays),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Misi Hari Ini',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        context.go('/profile/misi');
-                      },
-                      child: const Text('Lihat Semua'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (summary.dailyMissions.isNotEmpty)
-                  MissionCard(mission: summary.dailyMissions.first)
-                else
-                  const Text('Tidak ada misi hari ini.'),
+                      TextButton(
+                        onPressed: () {
+                          context.go('/profile/misi');
+                        },
+                        child: const Text('Lihat Semua'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (summary.dailyMissions.isNotEmpty)
+                    MissionCard(mission: summary.dailyMissions.first)
+                  else
+                    const Text('Tidak ada misi hari ini.'),
+                ],
               ],
             ),
           );

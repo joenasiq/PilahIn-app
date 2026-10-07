@@ -4,9 +4,11 @@ import '../../auth/presentation/auth_controller.dart';
 import '../data/home_repository.dart';
 import '../data/mock_home_repository.dart';
 import '../domain/home_summary.dart';
+import '../../gamification/presentation/gamification_provider.dart';
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
-  return MockHomeRepository();
+  final gamificationRepo = ref.watch(gamificationRepositoryProvider);
+  return MockHomeRepository(gamificationRepo);
 });
 
 final homeSummaryProvider = FutureProvider.autoDispose<HomeSummary>((ref) async {

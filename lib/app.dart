@@ -13,6 +13,7 @@ class App extends ConsumerWidget {
     return MaterialApp.router(
       title: 'PilahIn',
       theme: AppTheme.lightTheme,
+      themeMode: ThemeMode.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

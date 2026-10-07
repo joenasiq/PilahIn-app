@@ -8,6 +8,7 @@ import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../../core/constants/ml_config.dart';
 import '../data/guidance_content.dart';
+import '../../history/presentation/history_provider.dart';
 
 class ResultScreen extends ConsumerStatefulWidget {
   final String? imagePath;
@@ -31,6 +32,20 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<ClassificationResult?>>(classificationControllerProvider, (previous, next) {
+      if (next is AsyncData && next.value != null) {
+        ref.read(historyNotifierProvider.notifier).saveScanToHistory(next.value!).catchError((e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Riwayat gagal disimpan'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+      }
+    });
+
     if (widget.imagePath == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Hasil Pemindaian')),
@@ -56,6 +71,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       appBar: AppBar(
         title: const Text('Hasil Pemindaian', style: TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
+          tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back, color: Colors.blue),
           onPressed: () => context.go('/scan'),
         ),

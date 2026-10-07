@@ -7,6 +7,8 @@ class HomeSummary {
   final int points;
   final int pointsToNextLevel;
   final int streakDays;
+  final int unlockedBadges;
+  final int totalBadges;
   final List<DailyMission> dailyMissions;
 
   HomeSummary({
@@ -16,6 +18,8 @@ class HomeSummary {
     required this.points,
     required this.pointsToNextLevel,
     required this.streakDays,
+    required this.unlockedBadges,
+    required this.totalBadges,
     required this.dailyMissions,
   });
 }
