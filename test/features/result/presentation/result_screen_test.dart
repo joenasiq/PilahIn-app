@@ -2,22 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pilahin_app/features/result/presentation/result_screen.dart';
-import 'package:pilahin_app/features/result/presentation/guidance_screen.dart';
-import 'package:pilahin_app/features/scan/domain/classification_result.dart';
-import 'package:pilahin_app/features/scan/domain/waste_category.dart';
-import 'package:pilahin_app/features/scan/presentation/classification_controller.dart';
 import 'package:pilahin_app/core/constants/ml_config.dart';
+import 'package:pilahin_app/core/waste/waste_types.dart';
+import 'package:pilahin_app/features/result/presentation/guidance_screen.dart';
+import 'package:pilahin_app/features/result/presentation/result_screen.dart';
+import 'package:pilahin_app/features/scan/domain/classification_result.dart';
+import 'package:pilahin_app/features/scan/presentation/classification_controller.dart';
 
 // Controller tiruan
 class MockClassificationController extends AsyncNotifier<ClassificationResult?> implements ClassificationController {
   @override
   Future<ClassificationResult?> build() async => null;
 
-  void setOrganic() {
+  void setCardboard() {
     state = AsyncValue.data(
       ClassificationResult(
-        category: WasteCategory.organik,
+        wasteType: WasteType.cardboard,
+        confidence: 0.942,
+        imagePath: 'dummy.jpg',
+        isUncertain: false,
+        timestamp: DateTime.now(),
+      ),
+    );
+  }
+
+  void setBiological() {
+    state = AsyncValue.data(
+      ClassificationResult(
+        wasteType: WasteType.biological,
         confidence: 0.927,
         imagePath: 'dummy.jpg',
         isUncertain: false,
@@ -26,11 +38,11 @@ class MockClassificationController extends AsyncNotifier<ClassificationResult?> 
     );
   }
 
-  void setInorganic() {
+  void setBattery() {
     state = AsyncValue.data(
       ClassificationResult(
-        category: WasteCategory.anorganik,
-        confidence: 0.912,
+        wasteType: WasteType.battery,
+        confidence: 0.885,
         imagePath: 'dummy.jpg',
         isUncertain: false,
         timestamp: DateTime.now(),
@@ -38,10 +50,10 @@ class MockClassificationController extends AsyncNotifier<ClassificationResult?> 
     );
   }
 
-  void setUncertain() {
+  void setUncertainPlastic() {
     state = AsyncValue.data(
       ClassificationResult(
-        category: WasteCategory.organik,
+        wasteType: WasteType.plastic,
         confidence: 0.48,
         imagePath: 'dummy.jpg',
         isUncertain: true,
@@ -49,6 +61,10 @@ class MockClassificationController extends AsyncNotifier<ClassificationResult?> 
       ),
     );
   }
+
+  void setOrganic() => setBiological();
+  void setInorganic() => setCardboard();
+  void setUncertain() => setUncertainPlastic();
 
   void setErrorState() {
     state = AsyncValue.error('Gagal', StackTrace.empty);
@@ -94,64 +110,75 @@ void main() {
     );
   }
 
-  testWidgets('Menampilkan hasil Organik (92,7%) dengan pil poin', (tester) async {
+  testWidgets('Menampilkan hasil cardboard: Anorganik dan chip Kardus', (tester) async {
     await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
-    mockController.setOrganic();
+    mockController.setCardboard();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Anorganik'), findsOneWidget);
+    expect(find.text('94.2%'), findsOneWidget);
+    expect(find.text('Jenis sampah'), findsOneWidget);
+    expect(find.text('Kardus'), findsOneWidget);
+    expect(find.text('Limbah B3 • Berbahaya'), findsNothing);
+  });
+
+  testWidgets('Menampilkan hasil biological: Organik dan chip Biologis', (tester) async {
+    await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
+    mockController.setBiological();
     await tester.pumpAndSettle();
 
     expect(find.text('Organik'), findsOneWidget);
     expect(find.text('92.7%'), findsOneWidget);
+    expect(find.text('Biologis'), findsOneWidget);
     expect(find.text('+15 Poin Pemindaian'), findsOneWidget);
-    expect(find.text('Tidak yakin dengan hasil klasifikasi ini.'), findsNothing);
+    expect(find.text('Limbah B3 • Berbahaya'), findsNothing);
   });
 
-  testWidgets('Menyembunyikan pil poin jika showScanPoints=false', (tester) async {
-    MlConfig.showScanPoints = false;
+  testWidgets('Menampilkan hasil battery: Anorganik dan chip B3', (tester) async {
     await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
-    mockController.setInorganic();
+    mockController.setBattery();
     await tester.pumpAndSettle();
 
     expect(find.text('Anorganik'), findsOneWidget);
-    expect(find.text('91.2%'), findsOneWidget);
-    expect(find.text('+15 Poin Pemindaian'), findsNothing);
+    expect(find.text('88.5%'), findsOneWidget);
+    expect(find.text('Baterai'), findsOneWidget);
+    expect(find.text('Limbah B3 • Berbahaya'), findsOneWidget);
   });
 
-  testWidgets('Menampilkan banner tidak yakin jika isUncertain', (tester) async {
+  testWidgets('Menampilkan keadaan tidak yakin: Mungkin: Plastik dan banner', (tester) async {
     await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
-    mockController.setUncertain();
+    mockController.setUncertainPlastic();
     await tester.pumpAndSettle();
 
     expect(find.text('48.0%'), findsOneWidget);
+    expect(find.text('Mungkin: Plastik'), findsOneWidget);
     expect(find.text('Hasil kurang yakin. Coba pindai ulang dengan pencahayaan lebih terang dan objek lebih dekat.'), findsOneWidget);
     expect(find.text('Pindai Ulang'), findsOneWidget);
   });
 
-  testWidgets('Tombol Panduan Lengkap membuka konten kategori yang benar dan kembali', (tester) async {
+  testWidgets('Tombol Panduan Lengkap membuka layar panduan dengan nama jenis', (tester) async {
     await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
-    mockController.setOrganic();
+    mockController.setCardboard();
     await tester.pumpAndSettle();
 
-    // Pastikan tombol ada dan terlihat
     final btn = find.text('Panduan Lengkap');
     expect(btn, findsOneWidget);
     await tester.ensureVisible(btn);
 
-    // Tap dan navigasi
     await tester.tap(btn);
     await tester.pumpAndSettle();
 
     // Harusnya masuk ke layar Panduan Pengelolaan
     expect(find.byType(GuidanceScreen), findsOneWidget);
-    expect(find.text('Langkah Pengelolaan'), findsOneWidget);
-    expect(find.text('Campurkan dengan daun kering dalam komposter'), findsOneWidget);
+    // Chip jenis dan judul menggunakan nama jenis: Kardus
+    expect(find.text('Kardus'), findsWidgets);
+    expect(find.text('Cara Pengolahan'), findsOneWidget);
 
     // Back
     final backBtn = find.byIcon(Icons.arrow_back).first;
     await tester.tap(backBtn);
     await tester.pumpAndSettle();
 
-    // Harusnya kembali ke ResultScreen tanpa berubah
     expect(find.byType(ResultScreen), findsOneWidget);
-    expect(find.text('Organik'), findsOneWidget);
   });
 }

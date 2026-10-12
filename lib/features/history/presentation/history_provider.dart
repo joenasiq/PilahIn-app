@@ -9,6 +9,7 @@ import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../../core/constants/ml_config.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/waste/waste_types.dart';
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
   return SqfliteHistoryRepository();
@@ -19,6 +20,7 @@ class HistoryState {
   final bool isLoading;
   final String? error;
   final WasteCategory? filterCategory;
+  final WasteType? filterWasteType;
   final String searchQuery;
 
   HistoryState({
@@ -26,6 +28,7 @@ class HistoryState {
     this.isLoading = true,
     this.error,
     this.filterCategory,
+    this.filterWasteType,
     this.searchQuery = '',
   });
 
@@ -34,6 +37,7 @@ class HistoryState {
     bool? isLoading,
     String? error,
     WasteCategory? filterCategory,
+    WasteType? filterWasteType,
     String? searchQuery,
     bool clearError = false,
   }) {
@@ -42,6 +46,7 @@ class HistoryState {
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       filterCategory: filterCategory ?? this.filterCategory,
+      filterWasteType: filterWasteType ?? this.filterWasteType,
       searchQuery: searchQuery ?? this.searchQuery,
     );
   }
@@ -53,6 +58,19 @@ class HistoryState {
       isLoading: isLoading,
       error: error,
       filterCategory: null,
+      filterWasteType: filterWasteType,
+      searchQuery: searchQuery,
+    );
+  }
+
+  // Helper method to clear filterWasteType
+  HistoryState clearWasteTypeFilter() {
+    return HistoryState(
+      entries: entries,
+      isLoading: isLoading,
+      error: error,
+      filterCategory: filterCategory,
+      filterWasteType: null,
       searchQuery: searchQuery,
     );
   }
@@ -73,39 +91,37 @@ class HistoryNotifier extends Notifier<HistoryState> {
       if (AppConstants.seedDemoHistory) {
         final count = await _repository.count();
         if (count == 0) {
-          // Insert 4 demo entries per request
-          // (Organik/Anorganik bergantian, persen 92,3 / 91,7 / 96,4 / 95,1, tanggal berbeda)
-          // Ini hanya untuk demo tampilan.
+          // Demo entries dengan variasi jenis sampah
           final now = DateTime.now();
           final demoEntries = [
             HistoryEntry(
               scanKey: 'demo_1',
-              category: WasteCategory.organik,
-              confidence: 0.923,
+              wasteType: WasteType.cardboard,
+              confidence: 0.942,
               isUncertain: false,
               pointsEarned: 20,
               createdAt: now.subtract(const Duration(days: 1, hours: 2)),
             ),
             HistoryEntry(
               scanKey: 'demo_2',
-              category: WasteCategory.anorganik,
-              confidence: 0.917,
+              wasteType: WasteType.biological,
+              confidence: 0.923,
               isUncertain: false,
               pointsEarned: 20,
               createdAt: now.subtract(const Duration(days: 2, hours: 5)),
             ),
             HistoryEntry(
               scanKey: 'demo_3',
-              category: WasteCategory.organik,
-              confidence: 0.964,
+              wasteType: WasteType.plastic,
+              confidence: 0.917,
               isUncertain: false,
               pointsEarned: 20,
               createdAt: now.subtract(const Duration(days: 3, hours: 1)),
             ),
             HistoryEntry(
               scanKey: 'demo_4',
-              category: WasteCategory.anorganik,
-              confidence: 0.951,
+              wasteType: WasteType.battery,
+              confidence: 0.885,
               isUncertain: false,
               pointsEarned: 20,
               createdAt: now.subtract(const Duration(days: 4, hours: 4)),
@@ -128,19 +144,33 @@ class HistoryNotifier extends Notifier<HistoryState> {
       // 1. Fetch filtered by category in SQL
       final rawEntries = await _repository.getAll(category: state.filterCategory);
       
-      // 2. Filter by search query in Dart
+      // 2. Filter gabungan kategori & jenis sampah (AND)
       List<HistoryEntry> filteredEntries = rawEntries;
+
+      if (state.filterCategory != null) {
+        filteredEntries = filteredEntries.where((entry) => entry.category == state.filterCategory).toList();
+      }
+
+      if (state.filterWasteType != null) {
+        filteredEntries = filteredEntries.where((entry) => entry.wasteType == state.filterWasteType).toList();
+      }
+
+      // 3. Pencarian mencocokkan judul, kategori, tanggal, nama jenis, dan labelKey
       if (state.searchQuery.isNotEmpty) {
         final query = state.searchQuery.toLowerCase();
         final dateFormat = DateFormat('dd MMM yyyy • HH:mm', 'id_ID');
         
-        filteredEntries = rawEntries.where((entry) {
-          final title = entry.itemName ?? (entry.category == WasteCategory.organik ? 'Sampah Organik' : 'Sampah Anorganik');
+        filteredEntries = filteredEntries.where((entry) {
+          final title = entry.wasteType?.displayName ?? entry.itemName ?? (entry.category == WasteCategory.organik ? 'Sampah Organik' : 'Sampah Anorganik');
           final categoryLabel = entry.category == WasteCategory.organik ? 'Organik' : 'Anorganik';
+          final wasteTypeName = entry.wasteType?.displayName ?? '';
+          final wasteTypeKey = entry.wasteType?.labelKey ?? '';
           final dateStr = dateFormat.format(entry.createdAt);
           
           return title.toLowerCase().contains(query) ||
                  categoryLabel.toLowerCase().contains(query) ||
+                 wasteTypeName.toLowerCase().contains(query) ||
+                 wasteTypeKey.toLowerCase().contains(query) ||
                  dateStr.toLowerCase().contains(query);
         }).toList();
       }
@@ -156,6 +186,15 @@ class HistoryNotifier extends Notifier<HistoryState> {
       state = state.clearCategoryFilter();
     } else {
       state = state.copyWith(filterCategory: category);
+    }
+    refresh();
+  }
+
+  void setFilterWasteType(WasteType? wasteType) {
+    if (wasteType == null) {
+      state = state.clearWasteTypeFilter();
+    } else {
+      state = state.copyWith(filterWasteType: wasteType);
     }
     refresh();
   }
@@ -193,7 +232,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
       
       final entry = HistoryEntry(
         scanKey: scanKey,
-        category: result.category,
+        wasteType: result.wasteType,
         confidence: result.confidence,
         isUncertain: result.isUncertain,
         pointsEarned: points,

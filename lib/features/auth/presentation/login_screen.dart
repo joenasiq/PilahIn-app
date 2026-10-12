@@ -18,6 +18,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -27,15 +28,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _login() {
+    setState(() {
+      _errorMessage = null;
+    });
+
     if (_formKey.currentState!.validate()) {
       ref.read(authControllerProvider.notifier).login(
-            _emailController.text,
+            _emailController.text.trim(),
             _passwordController.text,
           );
     }
   }
 
   void _loginAsGuest() {
+    setState(() {
+      _errorMessage = null;
+    });
     ref.read(authControllerProvider.notifier).loginAsGuest();
   }
 
@@ -44,10 +52,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Dengarkan perubahan state untuk menampilkan error
     ref.listen(authControllerProvider, (previous, next) {
       if (next is AsyncError) {
+        final errorMsg = next.error.toString().replaceAll('Exception: ', '');
+        setState(() {
+          _errorMessage = errorMsg;
+        });
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString().replaceAll('Exception: ', '')),
+            content: Text(errorMsg),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -99,6 +113,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             labelText: 'Email',
                             hintText: 'Masukkan email Anda',
                             keyboardType: TextInputType.emailAddress,
+                            onChanged: (_) {
+                              if (_errorMessage != null) {
+                                setState(() => _errorMessage = null);
+                              }
+                            },
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Email wajib diisi';
@@ -115,6 +134,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             labelText: 'Kata Sandi',
                             hintText: 'Masukkan kata sandi Anda',
                             obscureText: _obscurePassword,
+                            onChanged: (_) {
+                              if (_errorMessage != null) {
+                                setState(() => _errorMessage = null);
+                              }
+                            },
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -140,7 +164,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  
+                  // Pesan Error jika login gagal
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
                   
                   // Tombol Masuk
                   PrimaryButton(

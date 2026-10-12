@@ -75,6 +75,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.blue),
           onPressed: () => context.go('/scan'),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Riwayat Pemindaian',
+            icon: const Icon(Icons.history, color: Colors.blue),
+            onPressed: () => context.push('/home/riwayat'),
+          ),
+        ],
       ),
       body: classificationState.when(
         data: (result) {
@@ -148,7 +155,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     final color = isOrganic ? Colors.green : Colors.blue;
     final progressColor = result.isUncertain ? Colors.grey : color;
 
-    final guidance = GuidanceContent.getGuidance(result.category);
+    final guidance = GuidanceContent.getGuidance(result.wasteType);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -250,6 +257,71 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               );
             },
           ),
+          const SizedBox(height: 12),
+
+          // Baris Jenis Sampah & Tag B3
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Jenis sampah',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                  fontSize: 13,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(result.wasteType.icon, size: 16, color: color),
+                    const SizedBox(width: 6),
+                    Text(
+                      result.isUncertain
+                          ? 'Mungkin: ${result.wasteType.displayName}'
+                          : result.wasteType.displayName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (result.isHazardous)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.deepOrange.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 16, color: Colors.deepOrange.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Limbah B3 • Berbahaya',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 16),
 
           // Banner Tidak Yakin
@@ -296,7 +368,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
           if (!result.isUncertain) const SizedBox(height: 8),
 
-          // Panduan Pengelolaan
+          // Panduan Pengelolaan (3 poin ringkasan per jenis sampah)
           Text(
             'Panduan Pengelolaan',
             style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -339,6 +411,27 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             child: const Text(
               'Panduan Lengkap',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Tombol Lihat Riwayat Pemindaian
+          OutlinedButton.icon(
+            onPressed: () {
+              context.push('/home/riwayat');
+            },
+            icon: const Icon(Icons.history),
+            label: const Text(
+              'Lihat Riwayat Pemindaian',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue,
+              side: const BorderSide(color: Colors.blue, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
             ),
           ),
           const SizedBox(height: 16),

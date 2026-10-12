@@ -21,13 +21,14 @@ class SqfliteHistoryRepository implements HistoryRepository {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE scan_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scan_key TEXT UNIQUE NOT NULL,
             category TEXT NOT NULL,
+            waste_type TEXT,
             confidence REAL NOT NULL,
             is_uncertain INTEGER NOT NULL,
             item_name TEXT,
@@ -41,7 +42,9 @@ class SqfliteHistoryRepository implements HistoryRepository {
         );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Implementasi migrasi database di masa depan jika ada perubahan skema
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE scan_history ADD COLUMN waste_type TEXT');
+        }
       },
     );
   }

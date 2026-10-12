@@ -28,10 +28,24 @@ void main() {
       expect(currentUser!.email, AppConstants.demoEmail);
     });
 
-    test('login dengan kredensial salah melempar Exception', () async {
+    test('login dengan email dan kata sandi salah melempar Exception yang sesuai', () async {
       expect(
         () => repository.login('salah@email.com', 'salah123'),
-        throwsException,
+        throwsA(predicate((e) => e.toString().contains('Email dan kata sandi salah'))),
+      );
+    });
+
+    test('login dengan email salah dan password benar melempar Exception Email salah', () async {
+      expect(
+        () => repository.login('salah@email.com', AppConstants.demoPassword),
+        throwsA(predicate((e) => e.toString().contains('Email salah'))),
+      );
+    });
+
+    test('login dengan email benar dan password salah melempar Exception Kata sandi salah', () async {
+      expect(
+        () => repository.login(AppConstants.demoEmail, 'salah123'),
+        throwsA(predicate((e) => e.toString().contains('Kata sandi salah'))),
       );
     });
 

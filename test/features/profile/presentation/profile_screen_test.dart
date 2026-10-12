@@ -64,14 +64,13 @@ void main() {
     );
   }
 
-  testWidgets('Guest mode shows Tamu and Masuk', (WidgetTester tester) async {
+  testWidgets('Guest mode shows Tamu and Keluar', (WidgetTester tester) async {
     final repo = FakeHistoryRepository();
     await tester.pumpWidget(await createWidgetUnderTest(repo: repo, isGuest: true));
     await tester.pumpAndSettle();
 
     expect(find.text('Tamu'), findsOneWidget);
-    expect(find.text('Masuk'), findsOneWidget);
-    expect(find.text('Keluar'), findsNothing);
+    expect(find.text('Keluar'), findsOneWidget);
     
     // No history
     expect(find.text('Belum ada data'), findsOneWidget);

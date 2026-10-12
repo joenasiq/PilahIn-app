@@ -37,22 +37,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) {
       final authState = ref.read(authControllerProvider);
-      if (authState.isLoading || !authState.hasValue) {
-        return '/splash';
+      final isSplash = state.matchedLocation == '/splash';
+
+      // Di halaman splash awal, tunggu hingga pengecekan sesi selesai
+      if (isSplash) {
+        if (authState.isLoading) {
+          return null;
+        }
+        return (authState.value != null) ? '/home' : '/login';
       }
 
       final isAuth = authState.value != null;
       final isLoggingIn = state.matchedLocation == '/login';
-      final isSplash = state.matchedLocation == '/splash';
 
-      if (isSplash) {
-        return isAuth ? '/home' : '/login';
-      }
-
+      // Jika belum login dan tidak sedang di halaman login, arahkan ke login
       if (!isAuth && !isLoggingIn) {
         return '/login';
       }
 
+      // Jika sudah login tapi masih di halaman login, arahkan ke home
       if (isAuth && isLoggingIn) {
         return '/home';
       }

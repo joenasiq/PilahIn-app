@@ -13,19 +13,33 @@ class LocalAuthRepository implements AuthRepository {
     // Simulasi delay jaringan
     await Future.delayed(const Duration(seconds: 1));
 
-    if (email == AppConstants.demoEmail && password == AppConstants.demoPassword) {
-      await _prefs.setBool(AppConstants.keyUserSession, true);
-      await _prefs.setBool(AppConstants.keyIsGuest, false);
-      
-      return const AppUser(
-        id: 'user_1',
-        email: AppConstants.demoEmail,
-        displayName: AppConstants.demoDisplayName,
-        isGuest: false,
-      );
+    final cleanEmail = email.trim().toLowerCase();
+    final demoEmail = AppConstants.demoEmail.trim().toLowerCase();
+
+    final isEmailWrong = cleanEmail != demoEmail;
+    final isPasswordWrong = password != AppConstants.demoPassword;
+
+    if (isEmailWrong && isPasswordWrong) {
+      throw Exception('Email dan kata sandi salah');
     }
+
+    if (isEmailWrong) {
+      throw Exception('Email salah');
+    }
+
+    if (isPasswordWrong) {
+      throw Exception('Kata sandi salah');
+    }
+
+    await _prefs.setBool(AppConstants.keyUserSession, true);
+    await _prefs.setBool(AppConstants.keyIsGuest, false);
     
-    throw Exception('Email atau kata sandi salah');
+    return const AppUser(
+      id: 'user_1',
+      email: AppConstants.demoEmail,
+      displayName: AppConstants.demoDisplayName,
+      isGuest: false,
+    );
   }
 
   @override

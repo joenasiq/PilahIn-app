@@ -63,19 +63,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
         ),
         title: const Text('Pindai Sampah', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
-        actions: [
-          if (scanState.status == ScanStatus.ready)
-            IconButton(
-              tooltip: scanState.isFlashOn ? 'Matikan flash' : 'Nyalakan flash',
-              icon: Icon(
-                scanState.isFlashOn ? Icons.flash_on : Icons.flash_off,
-                color: scanState.isFlashOn ? Colors.yellow : Colors.grey,
-              ),
-              onPressed: () {
-                ref.read(scanControllerProvider.notifier).toggleFlash();
-              },
-            ),
-        ],
       ),
       body: SafeArea(
         child: Column(
@@ -250,13 +237,17 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             ),
           ),
           IconButton(
-            tooltip: 'Pengaturan',
-            icon: const Icon(Icons.settings_outlined, size: 32, color: Colors.grey),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Pengaturan belum tersedia')),
-              );
-            },
+            tooltip: state.isFlashOn ? 'Matikan flash' : 'Nyalakan flash',
+            icon: Icon(
+              state.isFlashOn ? Icons.flash_on : Icons.flash_off,
+              size: 32,
+              color: state.isFlashOn ? Colors.amber : Colors.grey,
+            ),
+            onPressed: state.status == ScanStatus.ready
+                ? () {
+                    ref.read(scanControllerProvider.notifier).toggleFlash();
+                  }
+                : null,
           ),
         ],
       ),

@@ -43,6 +43,7 @@ dependencies:
   shared_preferences: ^2.5.5
   google_fonts: ^9.0.0
   intl: ^0.20.3
+  video_player: ^2.14.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -65,10 +66,19 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
+  assets:
+    - assets/guidance/battery/
+    - assets/guidance/biological/
+    - assets/guidance/brown-glass/
+    - assets/guidance/cardboard/
+    - assets/guidance/clothes/
+    - assets/guidance/green-glass/
+    - assets/guidance/metal/
+    - assets/guidance/paper/
+    - assets/guidance/plastic/
+    - assets/guidance/shoes/
+    - assets/guidance/trash/
+    - assets/guidance/white-glass/
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
