@@ -9,6 +9,9 @@ import '../../scan/domain/classification_result.dart';
 import '../../../core/constants/ml_config.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
+import 'widgets/eco_impact_card.dart';
+import 'widgets/point_reward_dialog.dart';
+import 'widgets/animated_reward_badge.dart';
 
 class ResultScreen extends ConsumerStatefulWidget {
   final String? imagePath;
@@ -20,6 +23,8 @@ class ResultScreen extends ConsumerStatefulWidget {
 }
 
 class _ResultScreenState extends ConsumerState<ResultScreen> {
+  bool _hasShownCelebration = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +48,15 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             ),
           );
         });
+
+        // Tampilkan animasi reward poin jika fitur poin aktif setelah proses pemindaian selesai
+        if (previous is AsyncLoading && !_hasShownCelebration && MlConfig.showScanPoints) {
+          _hasShownCelebration = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            PointRewardDialog.show(context, pointsEarned: MlConfig.scanPointsReward);
+          });
+        }
       }
     });
 
@@ -195,25 +209,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           if (MlConfig.showScanPoints) ...[
             Align(
               alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.blue, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      '+${MlConfig.scanPointsReward} Poin Pemindaian',
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
+              child: AnimatedRewardBadge(points: MlConfig.scanPointsReward),
             ),
             const SizedBox(height: 16),
           ],
@@ -367,6 +363,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ],
 
           if (!result.isUncertain) const SizedBox(height: 8),
+
+          // Kartu Dampak Lingkungan (Eco-Impact)
+          EcoImpactCard(wasteType: result.wasteType),
+          const SizedBox(height: 24),
 
           // Panduan Pengelolaan (3 poin ringkasan per jenis sampah)
           Text(
