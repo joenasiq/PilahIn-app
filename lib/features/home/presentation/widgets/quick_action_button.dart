@@ -16,37 +16,57 @@ class QuickActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: iconBackgroundColor,
-              shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Colors.grey.shade200,
+              width: 1.2,
             ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 32,
-            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: iconBackgroundColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconBackgroundColor,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: onTap,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            side: BorderSide(color: Theme.of(context).colorScheme.primary),
-          ),
-          child: Text(label),
-        ),
-      ],
+      ),
     );
   }
 }

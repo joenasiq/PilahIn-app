@@ -25,13 +25,13 @@ class HomeScreen extends ConsumerWidget {
       body: homeState.when(
         data: (summary) {
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (AppConstants.gamificationEnabled) ...[
                   LevelCard(summary: summary),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                 ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -39,18 +39,18 @@ class HomeScreen extends ConsumerWidget {
                     Expanded(
                       child: QuickActionButton(
                         icon: Icons.crop_free,
-                        iconBackgroundColor: Colors.blue,
+                        iconBackgroundColor: const Color(0xFF059669),
                         label: 'Pindai Sekarang',
                         onTap: () {
                           context.go('/scan');
                         },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: QuickActionButton(
                         icon: Icons.menu_book,
-                        iconBackgroundColor: Colors.green,
+                        iconBackgroundColor: const Color(0xFF0284C7),
                         label: 'Riwayat',
                         onTap: () {
                           context.go('/home/riwayat');
@@ -60,9 +60,9 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
                 if (AppConstants.gamificationEnabled) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   StreakCard(streakDays: summary.streakDays),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
