@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import '../../scan/presentation/classification_controller.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../../core/constants/ml_config.dart';
+import '../../../core/theme/app_colors.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
 import 'widgets/eco_impact_card.dart';
@@ -30,35 +32,48 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.imagePath != null) {
-        ref.read(classificationControllerProvider.notifier).classify(widget.imagePath!);
+        ref
+            .read(classificationControllerProvider.notifier)
+            .classify(widget.imagePath!);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<ClassificationResult?>>(classificationControllerProvider, (previous, next) {
-      if (next is AsyncData && next.value != null) {
-        ref.read(historyNotifierProvider.notifier).saveScanToHistory(next.value!).catchError((e) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Riwayat gagal disimpan'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        });
+    ref.listen<AsyncValue<ClassificationResult?>>(
+      classificationControllerProvider,
+      (previous, next) {
+        if (next is AsyncData && next.value != null) {
+          ref
+              .read(historyNotifierProvider.notifier)
+              .saveScanToHistory(next.value!)
+              .catchError((e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Riwayat gagal disimpan'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              });
 
-        // Tampilkan animasi reward poin jika fitur poin aktif setelah proses pemindaian selesai
-        if (previous is AsyncLoading && !_hasShownCelebration && MlConfig.showScanPoints) {
-          _hasShownCelebration = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!context.mounted) return;
-            PointRewardDialog.show(context, pointsEarned: MlConfig.scanPointsReward);
-          });
+          // Tampilkan animasi reward poin jika fitur poin aktif setelah proses pemindaian selesai
+          if (previous is AsyncLoading &&
+              !_hasShownCelebration &&
+              MlConfig.showScanPoints) {
+            _hasShownCelebration = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) return;
+              PointRewardDialog.show(
+                context,
+                pointsEarned: MlConfig.scanPointsReward,
+              );
+            });
+          }
         }
-      }
-    });
+      },
+    );
 
     if (widget.imagePath == null) {
       return Scaffold(
@@ -83,16 +98,19 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hasil Pemindaian', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Hasil Pemindaian',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
           tooltip: 'Kembali',
-          icon: const Icon(Icons.arrow_back, color: Colors.blue),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primaryGreen),
           onPressed: () => context.go('/scan'),
         ),
         actions: [
           IconButton(
             tooltip: 'Riwayat Pemindaian',
-            icon: const Icon(Icons.history, color: Colors.blue),
+            icon: const Icon(Icons.history, color: AppColors.primaryGreen),
             onPressed: () => context.push('/home/riwayat'),
           ),
         ],
@@ -141,7 +159,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               children: [
                 OutlinedButton(
                   onPressed: () {
-                    ref.read(classificationControllerProvider.notifier).classify(widget.imagePath!);
+                    ref
+                        .read(classificationControllerProvider.notifier)
+                        .classify(widget.imagePath!);
                   },
                   child: const Text('Coba Lagi'),
                 ),
@@ -161,12 +181,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   Widget _buildResultView(BuildContext context, ClassificationResult result) {
     final theme = Theme.of(context);
     final isOrganic = result.category == WasteCategory.organik;
-    
+
     final categoryName = isOrganic ? 'Organik' : 'Anorganik';
     final confPercent = (result.confidence * 100).toStringAsFixed(1);
-    
+
     // Warna sesuai tema
-    final color = isOrganic ? Colors.green : Colors.blue;
+    final color = isOrganic ? AppColors.organicGreen : AppColors.primaryGreen;
     final progressColor = result.isUncertain ? Colors.grey : color;
 
     final guidance = GuidanceContent.getGuidance(result.wasteType);
@@ -198,7 +218,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 errorBuilder: (context, error, stackTrace) => Container(
                   height: 250,
                   color: Colors.grey[300],
-                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                  child: const Icon(
+                    Icons.broken_image,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
             ),
@@ -269,7 +293,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
@@ -294,7 +321,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
               if (result.isHazardous)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.deepOrange.shade50,
                     borderRadius: BorderRadius.circular(20),
@@ -303,7 +333,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.warning_amber_rounded, size: 16, color: Colors.deepOrange.shade700),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 16,
+                        color: Colors.deepOrange.shade700,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Limbah B3 • Berbahaya',
@@ -371,28 +405,27 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           // Panduan Pengelolaan (3 poin ringkasan per jenis sampah)
           Text(
             'Panduan Pengelolaan',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 12),
-          ...guidance.summaryPoints.map((point) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 6.0, right: 12.0),
-                  child: CircleAvatar(
-                    radius: 4,
-                    backgroundColor: color,
+          ...guidance.summaryPoints.map(
+            (point) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6.0, right: 12.0),
+                    child: CircleAvatar(radius: 4, backgroundColor: color),
                   ),
-                ),
-                Expanded(
-                  child: Text(point),
-                ),
-              ],
+                  Expanded(child: Text(point)),
+                ],
+              ),
             ),
-          )),
-          
+          ),
+
           const SizedBox(height: 24),
 
           // Tombol Panduan Lengkap
@@ -401,7 +434,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               context.push('/scan/panduan', extra: result);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: AppColors.primaryGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -426,8 +459,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue,
-              side: const BorderSide(color: Colors.blue, width: 1.5),
+              foregroundColor: AppColors.primaryGreen,
+              side: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(100),

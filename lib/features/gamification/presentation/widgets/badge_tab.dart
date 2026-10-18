@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
 import '../gamification_provider.dart';
 import 'badge_tile.dart';
 import 'badge_detail_sheet.dart';
@@ -14,7 +16,14 @@ class BadgeTab extends ConsumerStatefulWidget {
 
 class _BadgeTabState extends ConsumerState<BadgeTab> {
   String _selectedFilter = 'Semua';
-  final List<String> _filters = ['Semua', 'Terbuka', 'Terkunci', 'Organik', 'Anorganik', 'Streak'];
+  final List<String> _filters = [
+    'Semua',
+    'Terbuka',
+    'Terkunci',
+    'Organik',
+    'Anorganik',
+    'Streak',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -45,20 +54,32 @@ class _BadgeTabState extends ConsumerState<BadgeTab> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(
+                    color: Colors.black.withAlpha(10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Koleksi Anda', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text(
+                    'Koleksi Anda',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                   const SizedBox(height: 8),
-                  Text('$unlockedCount dari $totalCount badge terbuka', style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    '$unlockedCount dari $totalCount badge terbuka',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 12),
                   LinearProgressIndicator(
                     value: progressRatio,
                     backgroundColor: Colors.grey.shade200,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.green,
+                    ),
                     minHeight: 8,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -78,9 +99,14 @@ class _BadgeTabState extends ConsumerState<BadgeTab> {
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ChoiceChip(
-                      label: Text(filter, style: TextStyle(color: isSelected ? Colors.white : Colors.black87)),
+                      label: Text(
+                        filter,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                        ),
+                      ),
                       selected: isSelected,
-                      selectedColor: Colors.blue,
+                      selectedColor: AppColors.primaryGreen,
                       onSelected: (selected) {
                         if (selected) setState(() => _selectedFilter = filter);
                       },
@@ -92,13 +118,18 @@ class _BadgeTabState extends ConsumerState<BadgeTab> {
             const SizedBox(height: 16),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Wrap(
                   spacing: 16,
                   runSpacing: 16,
                   children: filteredBadges.map((badge) {
                     return SizedBox(
-                      width: (MediaQuery.of(context).size.width - 48) / 2, // 2 columns minus paddings
+                      width:
+                          (MediaQuery.of(context).size.width - 48) /
+                          2, // 2 columns minus paddings
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => BadgeDetailSheet.show(context, badge),

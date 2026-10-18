@@ -1,10 +1,12 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ml_config.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
 import '../data/guidance_content.dart';
@@ -42,16 +44,21 @@ class GuidanceScreen extends ConsumerWidget {
     final guidance = GuidanceContent.getGuidance(wasteType);
     final binInfo = getWasteBinInfo(wasteType);
     final isOrganic = result!.category == WasteCategory.organik;
-    final primaryColor = isOrganic ? Colors.green : Colors.blue;
+    final primaryColor = isOrganic
+        ? AppColors.organicGreen
+        : AppColors.primaryGreen;
     final iconData = isOrganic ? Icons.eco : Icons.recycling;
 
     final mediaAsync = ref.watch(guidanceMediaProvider(wasteType));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panduan Pengelolaan', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Panduan Pengelolaan',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.blue),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primaryGreen),
           onPressed: () => context.pop(),
         ),
       ),
@@ -79,19 +86,16 @@ class GuidanceScreen extends ConsumerWidget {
                   // 3. Judul (Nama Jenis)
                   Text(
                     wasteType.displayName,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(context).textTheme.headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
 
                   // 4. Deskripsi
                   Text(
                     guidance.description,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey[700],
-                          height: 1.4,
-                        ),
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(color: Colors.grey[700], height: 1.4),
                   ),
                   const SizedBox(height: 16),
 
@@ -108,15 +112,15 @@ class GuidanceScreen extends ConsumerWidget {
                   // 7. Bagian "Cara Pengolahan"
                   Text(
                     'Cara Pengolahan',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
 
                   // Media & Langkah-langkah
                   mediaAsync.when(
-                    data: (media) => _buildGuidanceStepsWithMedia(context, guidance, media),
+                    data: (media) =>
+                        _buildGuidanceStepsWithMedia(context, guidance, media),
                     loading: () => _buildGuidanceStepsWithMedia(
                       context,
                       guidance,
@@ -153,11 +157,17 @@ class GuidanceScreen extends ConsumerWidget {
                       icon: const Icon(Icons.history),
                       label: const Text(
                         'Lihat Riwayat Pemindaian',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                        side: const BorderSide(color: Colors.blue, width: 1.5),
+                        foregroundColor: AppColors.primaryGreen,
+                        side: const BorderSide(
+                          color: AppColors.primaryGreen,
+                          width: 1.5,
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(100),
@@ -210,7 +220,9 @@ class GuidanceScreen extends ConsumerWidget {
           ),
           backgroundColor: primaryColor.withAlpha(25),
           side: BorderSide.none,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
+          ),
         ),
         // Chip Jenis
         Chip(
@@ -221,31 +233,51 @@ class GuidanceScreen extends ConsumerWidget {
           ),
           backgroundColor: primaryColor.withAlpha(25),
           side: BorderSide.none,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
+          ),
         ),
         // Chip B3 jika berbahaya
         if (isHazardous)
           Chip(
-            avatar: Icon(Icons.warning_amber_rounded, color: Colors.deepOrange.shade700, size: 18),
+            avatar: Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.deepOrange.shade700,
+              size: 18,
+            ),
             label: Text(
               'Limbah B3 • Berbahaya',
-              style: TextStyle(color: Colors.deepOrange.shade800, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.deepOrange.shade800,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             backgroundColor: Colors.deepOrange.shade50,
             side: BorderSide.none,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(100),
+            ),
           ),
         // Chip Poin Pemindaian
         if (MlConfig.showScanPoints)
           Chip(
-            avatar: const Icon(Icons.auto_awesome, color: Colors.blue, size: 18),
+            avatar: const Icon(
+              Icons.auto_awesome,
+              color: AppColors.primaryGreen,
+              size: 18,
+            ),
             label: Text(
               '+${MlConfig.scanPointsReward} Poin Pemindaian',
-              style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            backgroundColor: Colors.blue.withAlpha(25),
+            backgroundColor: AppColors.primaryGreen.withAlpha(25),
             side: BorderSide.none,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(100),
+            ),
           ),
       ],
     );
@@ -291,7 +323,11 @@ class GuidanceScreen extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.deepOrange.shade700, size: 24),
+          Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.deepOrange.shade700,
+            size: 24,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -406,10 +442,14 @@ class GuidanceScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 40.0, top: 10.0),
                   child: stepImagePath != null
-                      ? _buildStepImageThumbnail(context, stepImagePath, step.title)
+                      ? _buildStepImageThumbnail(
+                          context,
+                          stepImagePath,
+                          step.title,
+                        )
                       : (AppConstants.showMediaPlaceholders
-                          ? _buildStepImagePlaceholder()
-                          : const SizedBox.shrink()),
+                            ? _buildStepImagePlaceholder()
+                            : const SizedBox.shrink()),
                 ),
               ],
             ),
@@ -436,10 +476,7 @@ class GuidanceScreen extends ConsumerWidget {
           Expanded(
             child: Text(
               'Video panduan belum tersedia',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
           ),
         ],
@@ -471,7 +508,11 @@ class GuidanceScreen extends ConsumerWidget {
   }
 
   /// Thumbnail foto langkah dengan interaksi zoom fullscreen
-  Widget _buildStepImageThumbnail(BuildContext context, String imagePath, String title) {
+  Widget _buildStepImageThumbnail(
+    BuildContext context,
+    String imagePath,
+    String title,
+  ) {
     return GestureDetector(
       onTap: () => _showFullscreenImageViewer(context, imagePath, title),
       child: ClipRRect(
@@ -520,7 +561,11 @@ class GuidanceScreen extends ConsumerWidget {
   }
 
   /// Tampilan Layar Penuh dengan InteractiveViewer
-  void _showFullscreenImageViewer(BuildContext context, String imagePath, String title) {
+  void _showFullscreenImageViewer(
+    BuildContext context,
+    String imagePath,
+    String title,
+  ) {
     showDialog(
       context: context,
       useSafeArea: false,
@@ -529,7 +574,10 @@ class GuidanceScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: Colors.black87,
           iconTheme: const IconThemeData(color: Colors.white),
-          title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
           leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(ctx).pop(),
@@ -543,7 +591,11 @@ class GuidanceScreen extends ConsumerWidget {
               imagePath,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => const Center(
-                child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                child: Icon(
+                  Icons.broken_image,
+                  color: Colors.white54,
+                  size: 64,
+                ),
               ),
             ),
           ),
@@ -571,30 +623,41 @@ class GuidanceScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Boleh dilakukan',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade800,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...guidance.doList.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6, right: 8),
-                      child: CircleAvatar(radius: 3, backgroundColor: Colors.green.shade400),
+          ...guidance.doList.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, right: 8),
+                    child: CircleAvatar(
+                      radius: 3,
+                      backgroundColor: Colors.green.shade400,
                     ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: TextStyle(fontSize: 13, color: Colors.green.shade900),
+                  ),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.green.shade900,
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -616,30 +679,41 @@ class GuidanceScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Hindari',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red.shade800),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade800,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...guidance.dontList.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6, right: 8),
-                      child: CircleAvatar(radius: 3, backgroundColor: Colors.red.shade400),
+          ...guidance.dontList.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, right: 8),
+                    child: CircleAvatar(
+                      radius: 3,
+                      backgroundColor: Colors.red.shade400,
                     ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: TextStyle(fontSize: 13, color: Colors.red.shade900),
+                  ),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.red.shade900,
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -648,11 +722,7 @@ class GuidanceScreen extends ConsumerWidget {
       builder: (context, constraints) {
         if (constraints.maxWidth < 360) {
           return Column(
-            children: [
-              doCard,
-              const SizedBox(height: 12),
-              dontCard,
-            ],
+            children: [doCard, const SizedBox(height: 12), dontCard],
           );
         }
         return Row(
@@ -668,51 +738,63 @@ class GuidanceScreen extends ConsumerWidget {
   }
 
   /// Bagian "Ide Pemanfaatan Kembali"
-  Widget _buildReuseIdeasSection(BuildContext context, List<String> reuseIdeas) {
+  Widget _buildReuseIdeasSection(
+    BuildContext context,
+    List<String> reuseIdeas,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.lightbulb_outline, color: Colors.amber.shade700, size: 22),
+            Icon(
+              Icons.lightbulb_outline,
+              color: Colors.amber.shade700,
+              size: 22,
+            ),
             const SizedBox(width: 8),
             Text(
               'Ide Pemanfaatan Kembali',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        ...reuseIdeas.map((idea) => Container(
-              margin: const EdgeInsets.only(bottom: 8.0),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade200),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, right: 10),
-                    child: Icon(Icons.eco, size: 16, color: Colors.amber.shade800),
+        ...reuseIdeas.map(
+          (idea) => Container(
+            margin: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 10),
+                  child: Icon(
+                    Icons.eco,
+                    size: 16,
+                    color: Colors.amber.shade800,
                   ),
-                  Expanded(
-                    child: Text(
-                      idea,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.brown.shade800,
-                        height: 1.3,
-                      ),
+                ),
+                Expanded(
+                  child: Text(
+                    idea,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.brown.shade800,
+                      height: 1.3,
                     ),
                   ),
-                ],
-              ),
-            )),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
