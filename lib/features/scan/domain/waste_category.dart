@@ -1,0 +1,4 @@
+enum WasteCategory {
+  organik,
+  anorganik
+}
