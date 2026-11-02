@@ -15,6 +15,7 @@ import 'package:pilahin_app/features/scan/data/scan_camera_service.dart';
 import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
 
 import '../features/history/helpers/fake_history_repository.dart';
+import '../features/auth/helpers/fake_auth_repository.dart';
 
 // Fake ScanService
 class FakeScanService implements ScanCameraService {
@@ -57,7 +58,8 @@ void main() {
   Future<void> pumpApp(WidgetTester tester) async {
     final fakeHistoryRepo = FakeHistoryRepository();
     final fakeGamificationRepo = MockGamificationRepository();
-    
+    final fakeAuthRepo = FakeAuthRepository(prefs);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -65,6 +67,8 @@ void main() {
           scanCameraServiceProvider.overrideWithValue(FakeScanService()),
           historyRepositoryProvider.overrideWithValue(fakeHistoryRepo),
           gamificationRepositoryProvider.overrideWithValue(fakeGamificationRepo),
+          // Jangan buka SQLite sungguhan di widget test.
+          authRepositoryProvider.overrideWithValue(fakeAuthRepo),
         ],
         child: const App(),
       ),

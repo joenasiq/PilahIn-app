@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/db/users_repository.dart';
 import '../data/local_auth_repository.dart';
 import '../domain/app_user.dart';
 import '../domain/auth_repository.dart';
@@ -13,7 +14,8 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 // Provider untuk AuthRepository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return LocalAuthRepository(prefs);
+  final usersRepo = ref.watch(usersRepositoryProvider);
+  return LocalAuthRepository(prefs, usersRepo);
 });
 
 // AuthController menggunakan AsyncNotifier

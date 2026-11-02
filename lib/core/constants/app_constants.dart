@@ -6,6 +6,7 @@ class AppConstants {
   // SharedPreferences Keys
   static const String keyUserSession = 'user_session';
   static const String keyIsGuest = 'is_guest';
+  static const String keyUserId = 'user_id';
 
   // Demo Flags
   static const bool seedDemoHistory = false;
