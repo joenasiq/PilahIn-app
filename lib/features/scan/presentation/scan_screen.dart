@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/widgets/main_wrapper.dart';
+import '../../../core/theme/app_colors.dart';
 import 'scan_controller.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
@@ -11,7 +13,8 @@ class ScanScreen extends ConsumerStatefulWidget {
   ConsumerState<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObserver {
+class _ScanScreenState extends ConsumerState<ScanScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -31,7 +34,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     if (currentIndex == 1) {
       if (state == AppLifecycleState.resumed) {
         ref.read(scanControllerProvider.notifier).initializeCamera();
-      } else if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      } else if (state == AppLifecycleState.inactive ||
+          state == AppLifecycleState.paused) {
         ref.read(scanControllerProvider.notifier).disposeCamera();
       }
     }
@@ -54,14 +58,17 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Kembali',
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.blue),
+          icon: const Icon(Icons.arrow_back_ios, color: AppColors.primaryGreen),
           onPressed: () {
             // Kembali ke tab beranda
             ref.read(currentBottomNavIndexProvider.notifier).setIndex(0);
             context.go('/home');
           },
         ),
-        title: const Text('Pindai Sampah', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Pindai Sampah',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -88,7 +95,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     );
   }
 
-  Widget _buildCameraPreview(BuildContext context, WidgetRef ref, ScanState state) {
+  Widget _buildCameraPreview(
+    BuildContext context,
+    WidgetRef ref,
+    ScanState state,
+  ) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -100,12 +111,16 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     );
   }
 
-  Widget _buildPreviewContent(BuildContext context, WidgetRef ref, ScanState state) {
+  Widget _buildPreviewContent(
+    BuildContext context,
+    WidgetRef ref,
+    ScanState state,
+  ) {
     switch (state.status) {
       case ScanStatus.initial:
       case ScanStatus.loading:
         return const Center(child: CircularProgressIndicator());
-      
+
       case ScanStatus.permissionDenied:
         return Center(
           child: Padding(
@@ -129,7 +144,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    ref.read(scanControllerProvider.notifier).initializeCamera();
+                    ref
+                        .read(scanControllerProvider.notifier)
+                        .initializeCamera();
                   },
                   child: const Text('Coba Lagi'),
                 ),
@@ -137,7 +154,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             ),
           ),
         );
-        
+
       case ScanStatus.error:
         return Center(
           child: Padding(
@@ -154,7 +171,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    ref.read(scanControllerProvider.notifier).initializeCamera();
+                    ref
+                        .read(scanControllerProvider.notifier)
+                        .initializeCamera();
                   },
                   child: const Text('Coba Lagi'),
                 ),
@@ -162,7 +181,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             ),
           ),
         );
-        
+
       case ScanStatus.ready:
       case ScanStatus.takingPicture:
         final cameraService = ref.read(scanCameraServiceProvider);
@@ -180,16 +199,18 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             if (state.status == ScanStatus.takingPicture)
               Container(
                 color: Colors.white.withValues(alpha: 0.5),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: const Center(child: CircularProgressIndicator()),
               ),
           ],
         );
     }
   }
 
-  Widget _buildBottomControls(BuildContext context, WidgetRef ref, ScanState state) {
+  Widget _buildBottomControls(
+    BuildContext context,
+    WidgetRef ref,
+    ScanState state,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 48.0),
       child: Row(
@@ -197,9 +218,15 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
         children: [
           IconButton(
             tooltip: 'Buka galeri',
-            icon: const Icon(Icons.image_outlined, size: 32, color: Colors.grey),
+            icon: const Icon(
+              Icons.image_outlined,
+              size: 32,
+              color: Colors.grey,
+            ),
             onPressed: () async {
-              final path = await ref.read(scanControllerProvider.notifier).pickFromGallery();
+              final path = await ref
+                  .read(scanControllerProvider.notifier)
+                  .pickFromGallery();
               if (path != null && context.mounted) {
                 context.go('/scan/hasil', extra: path);
               }
@@ -208,7 +235,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
           GestureDetector(
             onTap: state.status == ScanStatus.ready
                 ? () async {
-                    final path = await ref.read(scanControllerProvider.notifier).takePicture();
+                    final path = await ref
+                        .read(scanControllerProvider.notifier)
+                        .takePicture();
                     if (path != null && context.mounted) {
                       context.go('/scan/hasil', extra: path);
                     }
@@ -222,7 +251,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.5), width: 4),
+                  border: Border.all(
+                    color: AppColors.primaryGreen.withValues(alpha: 0.5),
+                    width: 4,
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(4.0),
