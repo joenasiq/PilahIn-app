@@ -17,8 +17,9 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<int> count() async {
-    return _entries.length;
+  Future<int> count({String? userId}) async {
+    if (userId == null) return _entries.length;
+    return _entries.where((e) => e.userId == userId).length;
   }
 
   @override
@@ -27,8 +28,11 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<List<HistoryEntry>> getAll({WasteCategory? category}) async {
+  Future<List<HistoryEntry>> getAll({WasteCategory? category, String? userId}) async {
     var list = _entries;
+    if (userId != null) {
+      list = list.where((e) => e.userId == userId).toList();
+    }
     if (category != null) {
       list = list.where((e) => e.category == category).toList();
     }
@@ -43,9 +47,12 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<Map<WasteCategory, int>> countByCategory() async {
-    int organik = _entries.where((e) => e.category == WasteCategory.organik).length;
-    int anorganik = _entries.where((e) => e.category == WasteCategory.anorganik).length;
+  Future<Map<WasteCategory, int>> countByCategory({String? userId}) async {
+    final list = userId == null
+        ? _entries
+        : _entries.where((e) => e.userId == userId).toList();
+    int organik = list.where((e) => e.category == WasteCategory.organik).length;
+    int anorganik = list.where((e) => e.category == WasteCategory.anorganik).length;
     return {
       WasteCategory.organik: organik,
       WasteCategory.anorganik: anorganik,

@@ -13,7 +13,8 @@ import '../../scan/domain/waste_category.dart';
 final historyStatsProvider =
     FutureProvider.autoDispose<Map<WasteCategory, int>>((ref) async {
       final repo = ref.watch(historyRepositoryProvider);
-      return repo.countByCategory();
+      final userId = ref.watch(authControllerProvider).value?.id;
+      return repo.countByCategory(userId: userId);
     });
 
 class DonutData {

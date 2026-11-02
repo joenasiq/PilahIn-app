@@ -2,17 +2,19 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../domain/history_entry.dart';
-import '../domain/history_repository.dart';
-import '../data/sqflite_history_repository.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ml_config.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/waste/waste_types.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
-import '../../../core/constants/ml_config.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../../core/waste/waste_types.dart';
+import '../data/sqflite_history_repository.dart';
+import '../domain/history_entry.dart';
+import '../domain/history_repository.dart';
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return SqfliteHistoryRepository();
+  return SqfliteHistoryRepository(ref.watch(appDatabaseProvider));
 });
 
 class HistoryState {
@@ -89,7 +91,8 @@ class HistoryNotifier extends Notifier<HistoryState> {
   Future<void> _init() async {
     try {
       if (AppConstants.seedDemoHistory) {
-        final count = await _repository.count();
+        final currentUserId = ref.read(authControllerProvider).value?.id;
+        final count = await _repository.count(userId: currentUserId);
         if (count == 0) {
           // Demo entries dengan variasi jenis sampah
           final now = DateTime.now();
@@ -141,8 +144,14 @@ class HistoryNotifier extends Notifier<HistoryState> {
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      // 1. Fetch filtered by category in SQL
-      final rawEntries = await _repository.getAll(category: state.filterCategory);
+      // Riwayat hanya menampilkan milik user aktif (tamu atau akun login).
+      final currentUserId = ref.read(authControllerProvider).value?.id;
+
+      // 1. Fetch filtered by category & user in SQL
+      final rawEntries = await _repository.getAll(
+        category: state.filterCategory,
+        userId: currentUserId,
+      );
       
       // 2. Filter gabungan kategori & jenis sampah (AND)
       List<HistoryEntry> filteredEntries = rawEntries;
@@ -231,6 +240,8 @@ class HistoryNotifier extends Notifier<HistoryState> {
       final points = MlConfig.showScanPoints ? MlConfig.scanPointsReward : 0;
       
       final entry = HistoryEntry(
+        // Milik user aktif; default 'guest_id' bila sesi tidak ada.
+        userId: ref.read(authControllerProvider).value?.id ?? 'guest_id',
         scanKey: scanKey,
         wasteType: result.wasteType,
         confidence: result.confidence,

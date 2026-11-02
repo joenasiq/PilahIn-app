@@ -1,79 +1,79 @@
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/db/app_database.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
 import '../../scan/domain/waste_category.dart';
 
+/// Repository riwayat berbasis SQLite.
+///
+/// Koneksi diambil dari [AppDatabase] (satu-satunya titik akses DB),
+/// jadi skema tabel `scan_history` dikelola terpusat di sana.
 class SqfliteHistoryRepository implements HistoryRepository {
-  Database? _db;
+  final AppDatabase _appDb;
 
-  Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _initDB();
-    return _db!;
+  SqfliteHistoryRepository(this._appDb);
+
+  Future<Database> get database => _appDb.database;
+
+  /// Cache label_key -> id untuk kolom waste_type_id.
+  Map<String, int>? _wasteTypeIds;
+
+  Future<Map<String, int>> _wasteTypeLookup() async {
+    final cached = _wasteTypeIds;
+    if (cached != null) return cached;
+
+    final db = await database;
+    final rows = await db.query('waste_types', columns: ['id', 'label_key']);
+    final map = {
+      for (final row in rows) (row['label_key'] as String): row['id'] as int,
+    };
+    _wasteTypeIds = map;
+    return map;
   }
 
-  Future<Database> _initDB() async {
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = '${documentsDirectory.path}/pilahin.db';
-
-    return await openDatabase(
-      path,
-      version: 2,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE scan_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            scan_key TEXT UNIQUE NOT NULL,
-            category TEXT NOT NULL,
-            waste_type TEXT,
-            confidence REAL NOT NULL,
-            is_uncertain INTEGER NOT NULL,
-            item_name TEXT,
-            points_earned INTEGER NOT NULL,
-            image_path TEXT,
-            created_at INTEGER NOT NULL
-          )
-        ''');
-        await db.execute(
-          'CREATE INDEX idx_created_at ON scan_history(created_at)'
-        );
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('ALTER TABLE scan_history ADD COLUMN waste_type TEXT');
-        }
-      },
-    );
+  /// Isi kolom `waste_type_id` (FK) dari `wasteType` entry bila tersedia.
+  Future<Map<String, dynamic>> _withWasteTypeId(HistoryEntry entry) async {
+    final map = entry.toMap();
+    final type = entry.wasteType;
+    if (type != null) {
+      final lookup = await _wasteTypeLookup();
+      map['waste_type_id'] = lookup[type.labelKey];
+    }
+    return map;
   }
 
   @override
   Future<void> add(HistoryEntry entry) async {
     final db = await database;
+    final map = await _withWasteTypeId(entry);
     await db.insert(
       'scan_history',
-      entry.toMap(),
+      map,
       conflictAlgorithm: ConflictAlgorithm.ignore, // Idempotent based on scanKey
     );
   }
 
   @override
-  Future<List<HistoryEntry>> getAll({WasteCategory? category}) async {
+  Future<List<HistoryEntry>> getAll({WasteCategory? category, String? userId}) async {
     final db = await database;
-    String? where;
-    List<Object?>? whereArgs;
+
+    final conditions = <String>[];
+    final whereArgs = <Object?>[];
 
     if (category != null) {
-      where = 'category = ?';
-      whereArgs = [category == WasteCategory.organik ? 'organik' : 'anorganik'];
+      conditions.add('category = ?');
+      whereArgs.add(category == WasteCategory.organik ? 'organik' : 'anorganik');
+    }
+    if (userId != null) {
+      conditions.add('user_id = ?');
+      whereArgs.add(userId);
     }
 
     final List<Map<String, dynamic>> maps = await db.query(
       'scan_history',
-      where: where,
-      whereArgs: whereArgs,
+      where: conditions.isEmpty ? null : conditions.join(' AND '),
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
       orderBy: 'created_at DESC',
     );
 
@@ -93,29 +93,48 @@ class SqfliteHistoryRepository implements HistoryRepository {
   @override
   Future<void> restore(HistoryEntry entry) async {
     final db = await database;
+    final map = await _withWasteTypeId(entry);
     await db.insert(
       'scan_history',
-      entry.toMap(),
+      map,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   @override
-  Future<int> count() async {
+  Future<int> count({String? userId}) async {
     final db = await database;
-    final result = await db.rawQuery('SELECT COUNT(*) FROM scan_history');
-    return Sqflite.firstIntValue(result) ?? 0;
+    final List<Map<String, dynamic>> result;
+    if (userId != null) {
+      result = await db.rawQuery(
+        'SELECT COUNT(*) AS c FROM scan_history WHERE user_id = ?',
+        [userId],
+      );
+    } else {
+      result = await db.rawQuery('SELECT COUNT(*) AS c FROM scan_history');
+    }
+    return (result.first['c'] as int?) ?? 0;
   }
 
   @override
-  Future<Map<WasteCategory, int>> countByCategory() async {
+  Future<Map<WasteCategory, int>> countByCategory({String? userId}) async {
     final db = await database;
-    final results = await db.rawQuery(
-        'SELECT category, COUNT(*) as count FROM scan_history GROUP BY category');
-    
+
+    String sql;
+    List<Object?> args;
+    if (userId != null) {
+      sql = "SELECT category, COUNT(*) AS count FROM scan_history WHERE user_id = ? GROUP BY category";
+      args = [userId];
+    } else {
+      sql = 'SELECT category, COUNT(*) AS count FROM scan_history GROUP BY category';
+      args = const [];
+    }
+
+    final results = await db.rawQuery(sql, args);
+
     int organik = 0;
     int anorganik = 0;
-    
+
     for (var row in results) {
       if (row['category'] == 'organik') {
         organik = row['count'] as int;
@@ -123,7 +142,7 @@ class SqfliteHistoryRepository implements HistoryRepository {
         anorganik = row['count'] as int;
       }
     }
-    
+
     return {
       WasteCategory.organik: organik,
       WasteCategory.anorganik: anorganik,
