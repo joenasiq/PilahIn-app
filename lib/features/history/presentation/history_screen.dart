@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,7 @@ import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../result/data/guidance_content.dart';
 import '../../../core/waste/waste_types.dart';
+import '../../../core/theme/app_colors.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -44,9 +46,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Riwayat Pemindaian', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Riwayat Pemindaian',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
           tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back),
@@ -62,9 +65,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       body: Column(
         children: [
           _buildSearchAndFilter(state, notifier),
-          Expanded(
-            child: _buildBody(state, notifier),
-          ),
+          Expanded(child: _buildBody(state, notifier)),
         ],
       ),
     );
@@ -100,7 +101,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 borderRadius: BorderRadius.circular(30),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 0,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -111,9 +115,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               children: [
                 _buildFilterChip('Semua', null, state, notifier),
                 const SizedBox(width: 8),
-                _buildFilterChip('Organik', WasteCategory.organik, state, notifier),
+                _buildFilterChip(
+                  'Organik',
+                  WasteCategory.organik,
+                  state,
+                  notifier,
+                ),
                 const SizedBox(width: 8),
-                _buildFilterChip('Anorganik', WasteCategory.anorganik, state, notifier),
+                _buildFilterChip(
+                  'Anorganik',
+                  WasteCategory.anorganik,
+                  state,
+                  notifier,
+                ),
                 const SizedBox(width: 8),
                 _buildWasteTypeFilterChip(context, state, notifier),
               ],
@@ -124,10 +138,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Widget _buildWasteTypeFilterChip(BuildContext context, HistoryState state, HistoryNotifier notifier) {
+  Widget _buildWasteTypeFilterChip(
+    BuildContext context,
+    HistoryState state,
+    HistoryNotifier notifier,
+  ) {
     final isSelected = state.filterWasteType != null;
     return InputChip(
-      avatar: isSelected ? null : const Icon(Icons.arrow_drop_down, size: 18, color: Colors.black54),
+      avatar: isSelected
+          ? null
+          : const Icon(Icons.arrow_drop_down, size: 18, color: Colors.black54),
       label: Text(
         isSelected ? 'Jenis: ${state.filterWasteType!.displayName}' : 'Jenis',
       ),
@@ -136,9 +156,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         _showWasteTypeFilterSheet(context, state, notifier);
       },
       onDeleted: isSelected ? () => notifier.setFilterWasteType(null) : null,
-      deleteIcon: isSelected ? const Icon(Icons.close, size: 16, color: Colors.white) : null,
+      deleteIcon: isSelected
+          ? const Icon(Icons.close, size: 16, color: Colors.white)
+          : null,
       deleteButtonTooltipMessage: 'Hapus filter jenis',
-      selectedColor: Colors.blue,
+      selectedColor: AppColors.primaryGreen,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -152,7 +174,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  void _showWasteTypeFilterSheet(BuildContext context, HistoryState state, HistoryNotifier notifier) {
+  void _showWasteTypeFilterSheet(
+    BuildContext context,
+    HistoryState state,
+    HistoryNotifier notifier,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -174,7 +200,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   children: [
                     const Text(
                       'Pilih Jenis Sampah',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -189,10 +218,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   controller: scrollController,
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.all_inclusive, color: Colors.grey),
+                      leading: const Icon(
+                        Icons.all_inclusive,
+                        color: Colors.grey,
+                      ),
                       title: const Text('Semua jenis'),
                       selected: state.filterWasteType == null,
-                      trailing: state.filterWasteType == null ? const Icon(Icons.check, color: Colors.blue) : null,
+                      trailing: state.filterWasteType == null
+                          ? const Icon(
+                              Icons.check,
+                              color: AppColors.primaryGreen,
+                            )
+                          : null,
                       onTap: () {
                         notifier.setFilterWasteType(null);
                         Navigator.pop(ctx);
@@ -203,15 +240,26 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       return ListTile(
                         leading: Icon(
                           type.icon,
-                          color: type.category == WasteCategory.organik ? Colors.green : Colors.blue,
+                          color: type.category == WasteCategory.organik
+                              ? AppColors.organicGreen
+                              : AppColors.primaryGreen,
                         ),
                         title: Text(type.displayName),
                         subtitle: Text(
-                          type.category == WasteCategory.organik ? 'Organik' : (type.isHazardous ? 'Anorganik (B3)' : 'Anorganik'),
+                          type.category == WasteCategory.organik
+                              ? 'Organik'
+                              : (type.isHazardous
+                                    ? 'Anorganik (B3)'
+                                    : 'Anorganik'),
                           style: const TextStyle(fontSize: 12),
                         ),
                         selected: isSelected,
-                        trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: AppColors.primaryGreen,
+                              )
+                            : null,
                         onTap: () {
                           notifier.setFilterWasteType(type);
                           Navigator.pop(ctx);
@@ -228,7 +276,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, WasteCategory? category, HistoryState state, HistoryNotifier notifier) {
+  Widget _buildFilterChip(
+    String label,
+    WasteCategory? category,
+    HistoryState state,
+    HistoryNotifier notifier,
+  ) {
     final isSelected = state.filterCategory == category;
     return ChoiceChip(
       label: Text(label),
@@ -236,7 +289,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       onSelected: (selected) {
         notifier.setFilterCategory(category);
       },
-      selectedColor: Colors.blue,
+      selectedColor: AppColors.primaryGreen,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -262,7 +315,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Terjadi kesalahan:\n${state.error}', textAlign: TextAlign.center),
+            Text(
+              'Terjadi kesalahan:\n${state.error}',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => notifier.refresh(),
@@ -274,7 +330,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
 
     if (state.entries.isEmpty) {
-      if (state.searchQuery.isNotEmpty || state.filterCategory != null || state.filterWasteType != null) {
+      if (state.searchQuery.isNotEmpty ||
+          state.filterCategory != null ||
+          state.filterWasteType != null) {
         // Not found
         return const Center(
           child: Column(
@@ -282,7 +340,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             children: [
               Icon(Icons.search_off, size: 80, color: Colors.grey),
               SizedBox(height: 16),
-              Text('Tidak ditemukan', style: TextStyle(fontSize: 16, color: Colors.grey)),
+              Text(
+                'Tidak ditemukan',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
             ],
           ),
         );
@@ -294,14 +355,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             children: [
               Icon(Icons.history, size: 80, color: Colors.grey[400]),
               const SizedBox(height: 16),
-              const Text('Belum ada riwayat pemindaian', style: TextStyle(fontSize: 16, color: Colors.grey)),
+              const Text(
+                'Belum ada riwayat pemindaian',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => context.go('/scan'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AppColors.primaryGreen,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
                 child: const Text('Mulai Pindai'),
               ),
@@ -323,11 +389,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   Widget _buildHistoryCard(HistoryEntry entry, HistoryNotifier notifier) {
     final isOrganic = entry.category == WasteCategory.organik;
-    final color = isOrganic ? Colors.green : Colors.blue;
-    final icon = entry.wasteType?.icon ?? (isOrganic ? Icons.eco : Icons.recycling);
-    final title = entry.wasteType?.displayName ?? (isOrganic ? 'Sampah Organik' : 'Sampah Anorganik');
+    final color = isOrganic ? AppColors.organicGreen : AppColors.primaryGreen;
+    final icon =
+        entry.wasteType?.icon ?? (isOrganic ? Icons.eco : Icons.recycling);
+    final title =
+        entry.wasteType?.displayName ??
+        (isOrganic ? 'Sampah Organik' : 'Sampah Anorganik');
     final categoryLabel = isOrganic ? 'Organik' : 'Anorganik';
-    
+
     final dateFormat = DateFormat('dd MMM yyyy • HH:mm', 'id_ID');
     final dateStr = dateFormat.format(entry.createdAt);
 
@@ -390,7 +459,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   child: Icon(icon, color: color, size: 28),
                 ),
                 const SizedBox(width: 16),
-                
+
                 // Content
                 Expanded(
                   child: Column(
@@ -398,14 +467,20 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         dateStr,
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Wrap(
@@ -414,15 +489,25 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         children: [
                           Text(
                             categoryLabel,
-                            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           if (entry.isHazardous)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.deepOrange.shade50,
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.deepOrange.shade300, width: 0.8),
+                                border: Border.all(
+                                  color: Colors.deepOrange.shade300,
+                                  width: 0.8,
+                                ),
                               ),
                               child: Text(
                                 'B3',
@@ -436,26 +521,36 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           if (entry.pointsEarned > 0)
                             Text(
                               ' • ${entry.pointsEarned} Poin',
-                              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           if (entry.isUncertain)
                             const Text(
                               ' • Tidak yakin',
-                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
                             ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Right part
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       '$confPercent%',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     const Text(
@@ -464,9 +559,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     ),
                     const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppColors.primaryGreen.withAlpha(25),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
@@ -474,9 +572,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         children: [
                           Text(
                             'Lihat',
-                            style: TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.primaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          Icon(Icons.chevron_right, size: 14, color: Colors.blue),
+                          Icon(
+                            Icons.chevron_right,
+                            size: 14,
+                            color: AppColors.primaryGreen,
+                          ),
                         ],
                       ),
                     ),
@@ -492,17 +598,23 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   void _showEntryDetail(BuildContext context, HistoryEntry entry) {
     final isOrganic = entry.category == WasteCategory.organik;
-    final color = isOrganic ? Colors.green : Colors.blue;
-    final title = entry.wasteType?.displayName ?? (isOrganic ? 'Sampah Organik' : 'Sampah Anorganik');
-    final icon = entry.wasteType?.icon ?? (isOrganic ? Icons.eco : Icons.recycling);
+    final color = isOrganic ? AppColors.organicGreen : AppColors.primaryGreen;
+    final title =
+        entry.wasteType?.displayName ??
+        (isOrganic ? 'Sampah Organik' : 'Sampah Anorganik');
+    final icon =
+        entry.wasteType?.icon ?? (isOrganic ? Icons.eco : Icons.recycling);
     final dateFormat = DateFormat('EEEE, dd MMMM yyyy • HH:mm', 'id_ID');
     final dateStr = dateFormat.format(entry.createdAt);
     final numFormat = NumberFormat('#,##0.0', 'id_ID');
     final confPercent = numFormat.format(entry.confidence * 100);
-    final wasteType = entry.wasteType ?? (isOrganic ? WasteType.biological : WasteType.cardboard);
+    final wasteType =
+        entry.wasteType ??
+        (isOrganic ? WasteType.biological : WasteType.cardboard);
     final guidance = GuidanceContent.getGuidance(wasteType);
 
-    final hasImage = entry.imagePath != null &&
+    final hasImage =
+        entry.imagePath != null &&
         entry.imagePath!.isNotEmpty &&
         File(entry.imagePath!).existsSync();
 
@@ -557,11 +669,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           border: Border.all(color: color.withAlpha(50)),
                         ),
                         child: Center(
-                          child: Icon(
-                            icon,
-                            size: 64,
-                            color: color,
-                          ),
+                          child: Icon(icon, size: 64, color: color),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -582,7 +690,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           spacing: 6,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: color.withAlpha(30),
                                 borderRadius: BorderRadius.circular(20),
@@ -599,11 +710,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             ),
                             if (entry.isHazardous)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.deepOrange.shade50,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: Colors.deepOrange.shade300),
+                                  border: Border.all(
+                                    color: Colors.deepOrange.shade300,
+                                  ),
                                 ),
                                 child: Text(
                                   'B3',
@@ -647,11 +763,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               const SizedBox(height: 4),
                               const Text(
                                 'Akurasi Deteksi',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
-                          Container(width: 1, height: 36, color: Colors.grey[300]),
+                          Container(
+                            width: 1,
+                            height: 36,
+                            color: Colors.grey[300],
+                          ),
                           Column(
                             children: [
                               Text(
@@ -659,13 +782,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
+                                  color: AppColors.primaryGreen,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               const Text(
                                 'Poin Didapat',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -675,49 +801,57 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     const SizedBox(height: 20),
                     Text(
                       'Rekomendasi Penanganan',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
-                    ...guidance.summaryPoints.map((point) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6, right: 10),
-                                child: CircleAvatar(
-                                  radius: 4,
-                                  backgroundColor: color,
-                                ),
+                    ...guidance.summaryPoints.map(
+                      (point) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, right: 10),
+                              child: CircleAvatar(
+                                radius: 4,
+                                backgroundColor: color,
                               ),
-                              Expanded(
-                                child: Text(
-                                  point,
-                                  style: const TextStyle(fontSize: 14),
-                                ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                point,
+                                style: const TextStyle(fontSize: 14),
                               ),
-                            ],
-                          ),
-                        )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
                         final classificationResult = ClassificationResult(
-                          wasteType: entry.wasteType ?? (isOrganic ? WasteType.biological : WasteType.cardboard),
+                          wasteType:
+                              entry.wasteType ??
+                              (isOrganic
+                                  ? WasteType.biological
+                                  : WasteType.cardboard),
                           confidence: entry.confidence,
                           imagePath: entry.imagePath ?? '',
                           isUncertain: entry.isUncertain,
                           timestamp: entry.createdAt,
                         );
-                        context.push('/scan/panduan', extra: classificationResult);
+                        context.push(
+                          '/scan/panduan',
+                          extra: classificationResult,
+                        );
                       },
                       icon: const Icon(Icons.menu_book),
                       label: const Text('Lihat Panduan Lengkap'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
