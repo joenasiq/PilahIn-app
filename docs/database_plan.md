@@ -1,265 +1,172 @@
-# Rencana Database PilahIn (SQLite lokal)
+# Rencana Penyimpanan Data PilahIn (Lokal + Firebase Cloud)
 
-> Status: **Fase 1 selesai** (2026-11-02). Fase 2–3 belum diimplementasikan.
-> DB: SQLite via `sqflite`, file `pilahin.db`, versi skema **3**.
-> Satu-satunya titik akses DB adalah `lib/core/db/app_database.dart` (class `AppDatabase`) — semua repository wajib lewat sana agar skema & versi dikelola di satu tempat.
+> Status: **Fase 1 & 2 selesai** (2026-11-03). Fase 3–5 belum diimplementasikan.
+>
+> **Log perubahan**: 2026-11-03 — arsitektur diganti dari "SQLite lokal 100%" menjadi
+> **hibrida lokal + cloud** berdasarkan diskusi dengan dosen:
+> data akun, riwayat scan (teks/log), poin, badge, dan achievement disimpan di **cloud
+> (Firebase)** agar aman dari logout/ganti perangkat/uninstall; **file gambar hasil
+> scan tetap lokal** (tidak diupload). SQLite dihapus (Fase 5).
 
-## 1. Skema (10 tabel)
+## 1. Arsitektur Penyimpanan (Lokal vs Cloud)
 
-### A. Reference data — di-seed sekali saat install (idempoten via `INSERT OR IGNORE`)
-
-**`waste_types`** — 12 baris, dibuat dari enum `WasteType` (sumber kebenaran tunggal = enum; `label_key` harus sama dengan label dataset ML).
-
-```sql
-CREATE TABLE waste_types (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    label_key     TEXT NOT NULL UNIQUE,      -- 'battery', 'biological', dst.
-    display_name  TEXT NOT NULL,
-    category      TEXT NOT NULL CHECK (category IN ('organik','anorganik')),
-    is_hazardous  INTEGER NOT NULL DEFAULT 0,
-    icon_key      TEXT,                      -- nama ikon (IconData.iconName)
-    is_active     INTEGER NOT NULL DEFAULT 1
-);
-```
-
-**`eco_impact`** — 12 baris, 1:1 dengan `waste_types` (disalin dari `eco_impact.dart`).
-
-```sql
-CREATE TABLE eco_impact (
-    waste_type_id             INTEGER PRIMARY KEY REFERENCES waste_types(id) ON DELETE CASCADE,
-    co2_saved_kg              REAL NOT NULL,
-    primary_metric_label      TEXT,
-    primary_metric_value      TEXT,
-    primary_metric_icon       TEXT,
-    decomposition_time        TEXT,
-    environmental_equivalence TEXT,
-    action_tip                TEXT,
-    highlight_fact            TEXT
-);
-```
-
-**`levels`** — ambang level. Level 3 & ambang 1000 konsisten dengan mock lama (850 poin, sisa 150 → ambang berikutnya 1000).
-
-```sql
-CREATE TABLE levels (
-    level      INTEGER PRIMARY KEY,
-    name       TEXT NOT NULL,
-    min_points INTEGER NOT NULL,
-    icon_key   TEXT
-);
-```
-Seed: (1, "Pemilah Pemula", 0), (2, "Juru Kompos", 300), (3, "Penyelamat Bumi", 700), (4, "Duta Daur Ulang", 1000), (5, "Dewa Ekosistem", 2000).
-
-**`badges`** — definisi 15 lencana (dari `MockGamificationRepository`). Kolom `metric` + `waste_type_ids` menyatakan cara menghitung progres (dipakai Fase 2).
-
-```sql
-CREATE TABLE badges (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    code           TEXT NOT NULL UNIQUE,     -- slug, mis. 'raja_botol'
-    name           TEXT NOT NULL,
-    description    TEXT NOT NULL,
-    category       TEXT NOT NULL CHECK (category IN ('organik','anorganik','streak','umum')),
-    icon_key       TEXT NOT NULL,
-    target         INTEGER NOT NULL,
-    unit           TEXT NOT NULL,            -- 'organik', 'botol', 'hari', 'pemindaian'
-    reward_points  INTEGER NOT NULL DEFAULT 0,
-    metric         TEXT NOT NULL DEFAULT 'total'
-                   CHECK (metric IN ('total','kategori_organik','kategori_anorganik','jenis','streak')),
-    waste_type_ids TEXT,                     -- label_key dipisah ',' saat metric='jenis'
-    is_active      INTEGER NOT NULL DEFAULT 1
-);
-```
-
-**`missions`** — definisi misi. `metric` menentukan apa yang dihitung; `waste_type_id` hanya dipakai saat `metric='jenis'`.
-
-```sql
-CREATE TABLE missions (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    code          TEXT NOT NULL UNIQUE,
-    title         TEXT NOT NULL,
-    unit          TEXT NOT NULL,
-    target        INTEGER NOT NULL,
-    reward_points INTEGER NOT NULL DEFAULT 0,
-    period        TEXT NOT NULL CHECK (period IN ('harian','mingguan')),
-    metric        TEXT NOT NULL CHECK (metric IN ('total','kategori_organik','kategori_anorganik','jenis')),
-    waste_type_id INTEGER REFERENCES waste_types(id),
-    is_active     INTEGER NOT NULL DEFAULT 1
-);
-```
-Seed:
-- `misi_harian_organik` — "Pilah 3 Sampah Organik", target 3, hadiah 30, harian, `kategori_organik`.
-- `misi_mingguan_plastik` — "Deteksi 10 Botol Plastik", target 10, hadiah 50, mingguan, `jenis` → plastic.
-
-### B. Data pengguna
-
-**`users`** — tamu = baris permanen (`guest_id`); akun = email + hash password (SHA-256 ber-garam email, fungsi di `core/db/password_hasher.dart`).
-
-```sql
-CREATE TABLE users (
-    id               TEXT PRIMARY KEY,       -- 'guest_id' atau 'user_1', dst.
-    email            TEXT UNIQUE,            -- NULL untuk tamu
-    password_hash    TEXT,                   -- NULL untuk tamu
-    display_name     TEXT NOT NULL,
-    is_guest         INTEGER NOT NULL DEFAULT 0,
-    total_points     INTEGER NOT NULL DEFAULT 0,   -- cache dari point_transactions
-    current_streak   INTEGER NOT NULL DEFAULT 0,
-    best_streak      INTEGER NOT NULL DEFAULT 0,
-    last_active_date TEXT,                   -- 'YYYY-MM-DD' (zona waktu lokal)
-    created_at       INTEGER NOT NULL,
-    updated_at       INTEGER NOT NULL
-);
-```
-
-**`scan_history`** — pengembangan tabel v2: +`user_id`, +`waste_type_id`. Kolom lama `waste_type` (TEXT labelKey) dipertahankan agar skema install-migrasi dan install-fresh identik.
-
-```sql
-CREATE TABLE scan_history (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id       TEXT NOT NULL DEFAULT 'guest_id' REFERENCES users(id),
-    scan_key      TEXT NOT NULL UNIQUE,      -- idempotency (sudah ada di v2)
-    waste_type    TEXT,                      -- labelKey (kolom lama, tetap ditulis)
-    waste_type_id INTEGER REFERENCES waste_types(id),
-    category      TEXT NOT NULL,             -- denormalisasi utk query statistik cepat
-    confidence    REAL NOT NULL,
-    is_uncertain  INTEGER NOT NULL,
-    item_name     TEXT,
-    points_earned INTEGER NOT NULL,
-    image_path    TEXT,
-    created_at    INTEGER NOT NULL
-);
-CREATE INDEX idx_scan_user_created ON scan_history(user_id, created_at);
-CREATE INDEX idx_scan_type ON scan_history(waste_type_id);
-CREATE INDEX idx_scan_created ON scan_history(created_at);
-```
-
-**`user_badges`** — progres per user; `unlocked_at` NULL = masih terkunci.
-
-```sql
-CREATE TABLE user_badges (
-    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    badge_id    INTEGER NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
-    progress    INTEGER NOT NULL DEFAULT 0,
-    unlocked_at INTEGER,
-    PRIMARY KEY (user_id, badge_id)
-);
-```
-
-**`user_missions`** — progres per user per periode; reset harian/mingguan via baris `period_start` baru.
-
-```sql
-CREATE TABLE user_missions (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    mission_id   INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
-    period_start TEXT NOT NULL,              -- 'YYYY-MM-DD' (harian) / senin ISO (mingguan)
-    progress     INTEGER NOT NULL DEFAULT 0,
-    status       TEXT NOT NULL DEFAULT 'berjalan' CHECK (status IN ('berjalan','selesai','diklaim')),
-    claimed_at   INTEGER,
-    UNIQUE (user_id, mission_id, period_start)
-);
-```
-
-**`point_transactions`** — ledger poin (sumber kebenaran total poin).
-
-```sql
-CREATE TABLE point_transactions (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    delta      INTEGER NOT NULL,             -- +15 scan, +30 misi, +100 lencana, -n penyesuaian
-    reason     TEXT NOT NULL CHECK (reason IN ('scan','misi','lencana','penyesuaian')),
-    ref_type   TEXT,                         -- 'scan' | 'user_mission' | 'user_badge' | NULL
-    ref_id     INTEGER,
-    created_at INTEGER NOT NULL
-);
-CREATE INDEX idx_points_user ON point_transactions(user_id, created_at);
-```
-
-Catatan: `PRAGMA foreign_keys = ON` dijalankan tiap koneksi dibuka (default sqflite OFF).
-
-## 2. Data Seed
-
-| Tabel | Sumber | Jumlah |
+| Data | Disimpan di | Catatan |
 |---|---|---|
-| `waste_types` | Enum `WasteType` (`core/waste/waste_types.dart`) | 12 |
-| `eco_impact` | `getEcoImpactForWasteType()` (`features/result/domain/eco_impact.dart`) | 12 |
-| `levels` | Definisi di atas (PM bisa revisi nama/ambang) | 5 |
-| `badges` | `MockGamificationRepository.getBadges()` + kolom metric baru | 15 |
-| `missions` | Mock misi + misi harian beranda | 2 |
-| `users` | Baris `guest_id` + akun demo (`kel5pbl@gmail.com`, hash `pilahln123`) | 2 |
+| Akun user (email, password) | **Firebase Auth** | Kelolaan Firebase; hash password tidak disimpan kita |
+| Profil, poin, streak | **Firestore** `users/{uid}` | Cache total poin |
+| Riwayat scan (teks/log) | **Firestore** `users/{uid}/scans/{scanKey}` | `image_path` hanya path file lokal |
+| Badge & misi per user | **Firestore** `users/{uid}/badges/{code}`, `.../missions/...` | Fase 3 |
+| File gambar hasil scan | **Lokal** (file di app directory) | Tidak diupload; jika file tidak ada di perangkat, UI menampilkan fallback (`history_screen` sudah cek `existsSync`) |
+| Progres tamu (scan) | **Lokal** (JSON di SharedPreferences) | `GuestProgressStore`; di-merge ke akun saat login/registrasi (Fase 3) |
+| Reference data (12 jenis sampah, eco-impact, 5 level, 15 badge, 2 misi) | **Kode Dart** (enum + konstanta yang sudah ada) | Data statis, tidak perlu penyimpanan |
 
-Konten `guidance_content.dart` (panduan) **tetap di code** — konten statis; baru dipindah ke asset JSON bila PM ingin diubah tanpa rilis.
+## 2. Model Data Firestore
 
-## 3. Migrasi v2 → v3 (`onUpgrade`)
+### `users/{uid}`
+```
+display_name     : String
+total_points     : int    -- cache dari seluruh event poin
+current_streak   : int
+best_streak      : int
+last_active_date : String? -- 'YYYY-MM-DD' (zona waktu lokal)
+created_at       : Timestamp
+```
 
-1. Buat 9 tabel baru + index (`CREATE ... IF NOT EXISTS`).
-2. Seed semua tabel reference + `users` (idempoten).
-3. `ALTER TABLE scan_history ADD COLUMN user_id TEXT NOT NULL DEFAULT 'guest_id'` dan `ADD COLUMN waste_type_id INTEGER`.
-4. Backfill: `UPDATE scan_history SET waste_type_id = (SELECT id FROM waste_types WHERE label_key = scan_history.waste_type) WHERE waste_type IS NOT NULL`.
-5. Riwayat lama otomatis jadi milik akun tamu — tidak ada data hilang.
+### `users/{uid}/scans/{scanKey}` (doc ID = scanKey → idempoten)
+```
+scan_key      : String (== doc ID)
+user_id       : String (== uid)
+waste_type    : String?   -- labelKey, mis. 'plastic'
+category      : String    -- 'organik' | 'anorganik'
+confidence    : double
+is_uncertain  : int       -- 0/1
+item_name     : String?
+points_earned : int
+image_path    : String?   -- path file LOKAL (bukan URL cloud)
+created_at    : int       -- millisecondsSinceEpoch
+```
 
-(Jalur `onUpgrade` juga menangani install era v1: kolom `waste_type` dulu ditambahkan di langkah v1→v2, lalu v2→v3.)
+### `users/{uid}/badges/{code}` (Fase 3)
+```
+progress    : int
+unlocked_at : int?        -- millisecondsSinceEpoch
+```
 
-## 4. Alur Bisnis Fase 2 (pipeline setelah tiap scan, satu transaksi)
+### `users/{uid}/missions/{code}_{periodStart}` (Fase 3)
+```
+progress     : int
+status       : 'berjalan' | 'selesai' | 'diklaim'
+period_start : String     -- 'YYYY-MM-DD' (harian) / Senin ISO (mingguan)
+claimed_at   : int?
+```
 
-1. `INSERT scan_history` (user aktif: tamu atau login).
-2. `INSERT point_transactions` (+`MlConfig.scanPointsReward`, reason `scan`).
-3. `UPDATE users`: `total_points` + aturan streak:
+Catatan: ledger `point_transactions` **tidak** dibuat — penyesuaian poin (hapus/undo)
+langsung memperbarui `users/{uid}.total_points` (cukup untuk skala PBL).
+
+## 3. Data Reference (tetap di kode Dart)
+
+| Data | Sumber di kode | Jumlah |
+|---|---|---|
+| Jenis sampah | Enum `WasteType` (`core/waste/waste_types.dart`) | 12 |
+| Eco-impact | `getEcoImpactForWasteType()` (`features/result/domain/eco_impact.dart`) | 12 |
+| Level | `Pemilah Pemula` 0, `Juru Kompos` 300, `Penyelamat Bumi` 700, `Duta Daur Ulang` 1000, `Dewa Ekosistem` 2000 | 5 |
+| Badge | Definisi 15 lencana (diambil dari `MockGamificationRepository` lama; kolom `metric` menentukan cara hitung: `total`/`kategori_organik`/`kategori_anorganik`/`jenis`/`streak`) | 15 |
+| Misi | `misi_harian_organik` (3 organik/hari, +30) & `misi_mingguan_plastik` (10 botol/minggu, +50) | 2 |
+
+Konten panduan (`guidance_content.dart`) tetap di code/asset — konten statis.
+
+## 4. Alur Bisnis Fase 3 (pipeline setelah tiap scan, satu batch write)
+
+1. `set users/{uid}/scans/{scanKey}` (user aktif: tamu → lokal dulu, akun → Firestore).
+2. Update `users/{uid}`: `total_points + MlConfig.scanPointsReward` + aturan streak:
    - `last_active_date == hari ini` → streak tetap
    - `== kemarin` → `current_streak + 1`
    - selain itu → `current_streak = 1`; `best_streak = max(...)`; `last_active_date = hari ini`.
-4. **Rekomputasi** `user_badges` & `user_missions` dari agregasi `scan_history`:
-   - `jenis` → `COUNT(*) WHERE waste_type_id IN (daftar)` / `kategori_*` → `COUNT(*) WHERE category = ?` / `total` → `COUNT(*)` / `streak` → ambil `users.current_streak`.
+3. **Rekomputasi** `users/{uid}/badges/*` & `missions/*` dari agregasi scans:
+   - `jenis` → jumlah scans dengan `waste_type` dalam daftar labelKey
+   - `kategori_*` → jumlah scans dengan `category = ?`
+   - `total` → jumlah semua scans
+   - `streak` → ambil `users/{uid}.current_streak`
    - Misi harian `period_start = hari ini`, mingguan = Senin ISO.
-5. Badge baru terbuka → `unlocked_at = now` + `INSERT point_transactions` (reason `lencana`); misi selesai → status `selesai` (→ `diklaim` + transaksi saat user menekan klaim).
+4. Badge baru terbuka → `unlocked_at = now` + tambah `total_points` (hadiah badge);
+   misi selesai → status `selesai` (→ `diklaim` saat user menekan klaim).
 
 Turunan:
-- Level: `SELECT * FROM levels WHERE min_points <= total_points ORDER BY level DESC LIMIT 1`; `pointsToNextLevel = min_points(level berikutnya) − total_points`.
-- Donut profil: `GROUP BY category` dari `scan_history` difilter `user_id`.
-- Hapus/undo riwayat: `INSERT point_transactions` delta negatif (reason `penyesuaian`) + kurangi `total_points`; badge yang sudah terbuka **tidak** dikunci lagi.
+- Level: `min_points <= total_points ORDER BY level DESC LIMIT 1`; `pointsToNextLevel = ambang(level berikut) − total_points`.
+- Donut profil: `GROUP BY category` dari scans user.
+- Hapus/undo riwayat: hapus doc scan + kurangi `total_points`; badge yang sudah terbuka **tidak** dikunci lagi.
 
-## 5. Pemetaan ke Kode
+## 5. Auto-Merge Tamu → Akun (Fase 3)
+
+- Progres tamu (list scan) ada di `GuestProgressStore` (SharedPreferences JSON).
+- Saat login/registrasi berhasil **dan** store berisi data:
+  1. Batch-write semua scan tamu → `users/{uid}/scans/{scanKey}` (doc ID = scanKey; yang sudah ada di-skip via merge).
+  2. Rekomputasi poin/streak/badge/misi user (langkah 3 di atas) — data tamu ikut terhitung.
+  3. `GuestProgressStore.clear()`.
+- Tamu tanpa progres → tidak ada yang di-merge.
+
+## 6. Pemetaan ke Kode
 
 ```
-lib/core/db/
-  app_database.dart      -- AppDatabase: openDatabase, PRAGMA, version 3, onCreate/onUpgrade, provider
-  seeds.dart             -- insertSeedData(): 12 waste types, 12 eco, 5 levels, 15 badges, 2 misi, 2 users
-  password_hasher.dart   -- hashPassword(email, password) SHA-256 ber-garam email
-  users_repository.dart  -- DbUser + UsersRepository (findById/findByEmail/getOrCreateGuest)
-lib/features/auth/data/        -- LocalAuthRepository: login & sesi dibaca dari tabel users
-lib/features/gamification/data/
-  sqflite_gamification_repository.dart  -- [FASE 2] implementasi nyata interface yang sudah ada
-lib/features/home/data/
-  sqflite_home_repository.dart          -- [FASE 2] HomeSummary dihitung dari users+levels+user_missions
+lib/main.dart                                    -- Firebase.initializeApp() (Android)
+lib/core/firebase/
+  firebase_providers.dart                        -- firebaseAuthProvider, firebaseFirestoreProvider
+lib/core/guest/
+  guest_progress_store.dart                      -- GuestProgressStore (SharedPreferences JSON)
+lib/features/auth/data/
+  firebase_auth_repository.dart                  -- login/guest/logout/getCurrentUser (Firebase)
+  local_auth_repository.dart                     -- [DIHAPUS FASE 5] versi SQLite
+lib/features/history/data/
+  firebase_history_repository.dart               -- Firestore users/{uid}/scans
+  guest_history_repository.dart                  -- GuestProgressStore
+  sqflite_history_repository.dart                -- [DIHAPUS FASE 5]
+lib/features/history/presentation/
+  history_provider.dart                          -- routing repository (tamu <-> akun) + HistoryNotifier
+lib/core/db/                                     -- [DIHAPUS FASE 5] app_database, seeds, users_repository, password_hasher
+[FASE 4] layar registrasi (dibuat tim)          -- dihubungkan ke FirebaseAuthRepository.register
+[FASE 3] firebase_gamification_repository.dart  -- pipeline poin/badge/misi
 ```
 
-Interface `GamificationRepository`, `HomeRepository`, `AuthRepository` tidak berubah; `HistoryRepository` ditambah parameter opsional `userId` (filter per akun).
+Interface `AuthRepository`, `HistoryRepository`, `GamificationRepository` tidak berubah
+(`register` ditambahkan ke `AuthRepository` di Fase 4).
 
-## 6. Tahapan
+## 7. Tahapan
 
 | Fase | Isi | Status |
 |---|---|---|
-| **1 – Fondasi DB** | `app_database.dart` (v3 + seed + migrasi), auth dari tabel `users`, penyatuan akses DB dengan `SqfliteHistoryRepository` (+ filter riwayat per user), `HistoryEntry.userId` | ✅ Selesai 2026-11-02 |
-| **2 – Pipeline gamifikasi** | Transaksi post-scan (poin, streak, recompute badge/misi), `SqfliteGamificationRepository` & `SqfliteHomeRepository` menggantikan mock | ⏳ |
-| **3 – Rapikan & uji** | Layar Beranda/Profil/Misi/Lencana membaca data nyata; uji hapus+undo; unit test repository (lihat catatan lingkungan test di bawah) | ⏳ |
+| **1 – Fondasi DB lokal** | Schema v3, seed, auth SQLite, riwayat per-user | ✅ 2026-11-02 (peran berubah: jadi fondasi guest + reference) |
+| **2 – Fondasi Firebase** | Dependency Firebase, `Firebase.initializeApp`, `FirebaseAuthRepository` (login/sesi via uid, pesan error konsisten), `FirebaseHistoryRepository` + `GuestHistoryRepository` + `GuestProgressStore`, routing provider, test guest repository, `late final` fix | ✅ 2026-11-03 |
+| **3 – Gamifikasi cloud** | Pipeline post-scan (batch write), recompute badge/misi, `FirebaseGamificationRepository` + home repository, **auto-merge tamu→akun** | ⏳ |
+| **4 – Integrasi registrasi** | Layar registrasi tim → `AuthRepository.register` + `users/{uid}` + auto-merge (menunggu push dari anggota tim) | ⏳ |
+| **5 – Bersihkan & uji** | Hapus SQLite (`lib/core/db/`, sqflite repo, `local_auth_repository`, dep `sqflite`+`crypto`), security rules Firestore, uji skenario (multi-user, tamu→akun, ganti perangkat), test dengan Firestore emulator | ⏳ |
 
-## 7. Catatan Lingkungan Test (known issue)
+## 8. Keamanan Firestore
 
-- **`flutter test` saat ini TIDAK bisa dijalankan di mesin ini** — masalah *pre-existing*, bukan efek Fase 1:
-  build hook native asset (`objective_c`, dependensi transitive yang sudah ada di `pubspec.lock` HEAD) gagal
-  karena path instalasi Flutter SDK mengandung spasi (`C:\Users\H P\flutter\...`) dan tooling Dart
-  tidak meng-quote path `dart.exe` saat mem-compile hook-nya
-  (`'C:\Users\H' is not recognized as an internal or external command`).
-- **Solusi permanen**: pindah instalasi Flutter ke path tanpa spasi (mis. `C:\flutter`), lalu `flutter test`
-  akan berfungsi normal. Aplikasi di perangkat **tidak** terpengaruh (produksi memakai `sqflite` via
-  platform channel, bukan native asset).
-- **Mitigasi sementara (sudah diterapkan)**:
-  - `sqflite_common_ffi` **tidak** dipakai (ditambah lalu dihapus) — dependensinya `sqlite3` memaksa build
-    native asset di semua test dan memperburuk error di atas.
-  - `LocalAuthRepository` diuji dengan **`FakeUsersRepository`** in-memory
-    (`test/features/auth/data/local_auth_repository_test.dart`) — logika login/sesi tetap teruji tanpa DB.
-  - `hashPassword`/`verifyPassword` diuji langsung (pure Dart, `test/core/db/password_hasher_test.dart`).
-  - Widget/integration test memakai `FakeAuthRepository` + `FakeHistoryRepository`
-    (`test/features/auth/helpers/fake_auth_repository.dart`) — hermetic, tanpa SQLite.
-- **Yang belum teruji otomatis**: eksekusi DDL/migrasi/seed sungguhan (baris SQL `AppDatabase` +
-  `seeds.dart`). Sudah di-review manual; verifikasi akhir lewat menjalankan app di perangkat
-  (install baru = `onCreate`; atau upgrade dari build lama = jalur `onUpgrade` v2→v3).
+Selama development: **test mode** (berlaku ~30 hari). Sebelum demo/sidang, ganti:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+```
+
+## 9. Catatan Lingkungan & Operasional
+
+- **Firebase project**: `pilahin-98b19`. Android app terdaftar (`com.example.pilahin_app`),
+  Authentication Email/Password aktif, Firestore dibuat (test mode).
+- **Akun demo**: `kel5pbl@gmail.com` / `pilahln123` — WAJIB dibuat di konsol Firebase
+  (Authentication → Users → Add user) agar login demo berfungsi.
+- **Target app: Android**. `Firebase.initializeApp()` tanpa options membaca
+  `google-services.json` otomatis di Android; di desktop inisialisasi gagal dengan pesan jelas.
+- **Offline**: Firestore punya cache offline bawaan; `get()` default `serverAndCache`
+  sehingga profil/riwayat tetap terbaca tanpa internet (data yang pernah dimuat).
+- **`flutter test` terblokir di mesin ini** (pre-existing): path instalasi Flutter
+  mengandung spasi (`C:\Users\H P\flutter`) sehingga build hook native asset
+  (`objective_c`) gagal (`'C:\Users\H' is not recognized...`). Solusi: pindahkan Flutter
+  ke path tanpa spasi. Test yang sudah ada memakai fake (tanpa Firebase) sehingga tetap
+  valid setelah bloker diperbaiki; test Firestore sungguhan via emulator (Fase 5).

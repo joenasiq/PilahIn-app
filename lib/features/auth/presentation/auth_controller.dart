@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/db/users_repository.dart';
-import '../data/local_auth_repository.dart';
+import '../data/firebase_auth_repository.dart';
 import '../domain/app_user.dart';
 import '../domain/auth_repository.dart';
 
@@ -11,11 +10,10 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('sharedPreferencesProvider must be overridden');
 });
 
-// Provider untuk AuthRepository
+// Provider untuk AuthRepository (berbasis Firebase Auth + Firestore)
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  final usersRepo = ref.watch(usersRepositoryProvider);
-  return LocalAuthRepository(prefs, usersRepo);
+  return FirebaseAuthRepository(prefs);
 });
 
 // AuthController menggunakan AsyncNotifier

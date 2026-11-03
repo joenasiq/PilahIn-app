@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "666304278723",
+    "project_id": "pilahin-98b19",
+    "storage_bucket": "pilahin-98b19.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:666304278723:android:88fdab417659ade82e7276",
+        "android_client_info": {
+          "package_name": "com.example.pilahin_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC_BYL-dJzn6IU39NV0RWdXreQ1Ewn5rg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

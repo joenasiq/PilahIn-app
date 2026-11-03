@@ -1,20 +1,37 @@
 import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ml_config.dart';
-import '../../../core/db/app_database.dart';
+import '../../../core/guest/guest_progress_store.dart';
 import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
-import '../data/sqflite_history_repository.dart';
+import '../data/firebase_history_repository.dart';
+import '../data/guest_history_repository.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
 
+/// Penyimpanan progres tamu (lokal, JSON di SharedPreferences).
+final guestProgressStoreProvider = Provider<GuestProgressStore>((ref) {
+  return GuestProgressStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// Repository riwayat terpilih berdasarkan sesi aktif:
+/// - tamu / belum login -> [GuestHistoryRepository] (lokal)
+/// - akun login         -> [FirebaseHistoryRepository] (Firestore)
+///
+/// Provider ini berganti instance saat auth berubah; `HistoryNotifier`
+/// akan re-`build` dan memuat ulang data dari repository baru.
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return SqfliteHistoryRepository(ref.watch(appDatabaseProvider));
+  final user = ref.watch(authControllerProvider).value;
+  if (user == null || user.isGuest) {
+    return GuestHistoryRepository(ref.watch(guestProgressStoreProvider));
+  }
+  return FirebaseHistoryRepository(FirebaseFirestore.instance, uid: user.id);
 });
 
 class HistoryState {
@@ -79,7 +96,9 @@ class HistoryState {
 }
 
 class HistoryNotifier extends Notifier<HistoryState> {
-  late final HistoryRepository _repository;
+  // NOTE: sengaja bukan `late final` — provider repository berganti saat
+  // auth berubah (tamu <-> akun), sehingga build() bisa berjalan ulang.
+  late HistoryRepository _repository;
 
   @override
   HistoryState build() {
