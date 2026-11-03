@@ -84,6 +84,7 @@ class HomeScreen extends ConsumerWidget {
                   if (dailyMission != null)
                     MissionCard(
                       mission: dailyMission,
+                      onStart: () => context.go('/scan'),
                       onClaim: dailyMission.isClaimable
                           ? () async {
                               final result = await claimMission(

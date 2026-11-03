@@ -5,8 +5,14 @@ import '../../domain/mission.dart';
 class MissionCardWidget extends StatelessWidget {
   final Mission mission;
   final VoidCallback? onClaim;
+  final VoidCallback? onStart;
 
-  const MissionCardWidget({super.key, required this.mission, this.onClaim});
+  const MissionCardWidget({
+    super.key,
+    required this.mission,
+    this.onClaim,
+    this.onStart,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +86,13 @@ class MissionCardWidget extends StatelessWidget {
                 ),
             ],
           ),
+          if (mission.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              mission.description,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
+            ),
+          ],
           const SizedBox(height: 12),
           if (isClaimed)
             Text(
@@ -117,23 +130,42 @@ class MissionCardWidget extends StatelessWidget {
                 ),
               ],
             ),
-            if (isCompleted) ...[
+            if (onStart != null || isCompleted) ...[
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: onClaim,
-                  icon: const Icon(Icons.card_giftcard, size: 18),
-                  label: const Text('Klaim Hadiah'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
+              if (isCompleted && onClaim != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: onClaim,
+                    icon: const Icon(Icons.card_giftcard, size: 18),
+                    label: const Text('Klaim Hadiah'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                if (onStart != null) const SizedBox(height: 8),
+              ],
+              if (onStart != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onStart,
+                    icon: const Icon(Icons.crop_free, size: 18),
+                    label: Text(isCompleted ? 'Pindai Lagi' : 'Mulai Misi'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ],
         ],

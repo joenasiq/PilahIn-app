@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../domain/mission.dart';
 import '../gamification_provider.dart';
@@ -38,6 +39,7 @@ class MissionTab extends ConsumerWidget {
     required String title,
     required AsyncValue<List<Mission>> missionsAsync,
     required VoidCallback onRetry,
+    bool showStartButton = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,6 +61,9 @@ class MissionTab extends ConsumerWidget {
                       mission: mission,
                       onClaim: mission.isClaimable
                           ? () => _claim(context, ref, mission)
+                          : null,
+                      onStart: showStartButton
+                          ? () => context.go('/scan')
                           : null,
                     ),
                   )
@@ -94,6 +99,7 @@ class MissionTab extends ConsumerWidget {
             title: 'Misi Harian',
             missionsAsync: dailyAsync,
             onRetry: () => ref.invalidate(dailyMissionsProvider),
+            showStartButton: true,
           ),
           const SizedBox(height: 32),
           _buildMissionSection(

@@ -1,6 +1,7 @@
 class Mission {
   final String id;
   final String judul;
+  final String description;
   final int progres;
   final int target;
   final String satuan;
@@ -14,6 +15,7 @@ class Mission {
   Mission({
     required this.id,
     required this.judul,
+    this.description = '',
     required this.progres,
     required this.target,
     required this.satuan,
@@ -36,6 +38,7 @@ class Mission {
     return Mission(
       id: id,
       judul: judul,
+      description: description,
       progres: progres ?? this.progres,
       target: target,
       satuan: satuan,

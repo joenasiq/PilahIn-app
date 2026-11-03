@@ -43,6 +43,24 @@ void main() {
     );
   }
 
+  test('misi membawa deskripsi singkat dari template', () async {
+    final missions = await service.dailyMissions(
+      userId: userId,
+      now: DateTime(2026, 11, 4, 10),
+    );
+    final organic = missions.firstWhere((m) => m.id == 'daily_organik_3');
+    final banana = missions.firstWhere((m) => m.id == 'daily_banana_1');
+
+    expect(
+      organic.description,
+      'Pindai 3 sampah organik seperti sisa makanan atau daun.',
+    );
+    expect(
+      banana.description,
+      'Pindai satu sampah biologis, misalnya kulit pisang.',
+    );
+  });
+
   test('progres misi harian dihitung dari riwayat hari ini', () async {
     final now = DateTime(2026, 11, 4, 10);
     await addScan(key: 'a', wasteType: WasteType.biological, at: now);

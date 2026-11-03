@@ -85,6 +85,7 @@ class MissionService {
       return Mission(
         id: template.id,
         judul: template.title,
+        description: template.description,
         progres: progress,
         target: template.target,
         satuan: template.unit,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,6 +26,21 @@ void main() {
   }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    final router = GoRouter(
+      initialLocation: '/profile/misi',
+      routes: [
+        GoRoute(
+          path: '/profile/misi',
+          builder: (context, state) => const MissionScreen(),
+        ),
+        GoRoute(
+          path: '/scan',
+          builder: (context, state) =>
+              const Scaffold(body: Text('Halaman Pindai')),
+        ),
+      ],
+    );
+
     return ProviderScope(
       overrides: [
         gamificationRepositoryProvider.overrideWithValue(
@@ -36,7 +52,7 @@ void main() {
           repository ?? FakeHistoryRepository(),
         ),
       ],
-      child: const MaterialApp(home: MissionScreen()),
+      child: MaterialApp.router(routerConfig: router),
     );
   }
 
@@ -55,11 +71,36 @@ void main() {
     expect(find.text('Pilah 3 Sampah Organik'), findsOneWidget);
     expect(find.text('Pindai Kulit Pisang Pertama'), findsOneWidget);
     expect(find.text('Progres: 0/3 Sampah'), findsOneWidget);
+    // Deskripsi singkat tiap misi harian tampil.
+    expect(
+      find.text('Pindai 3 sampah organik seperti sisa makanan atau daun.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Pindai satu sampah biologis, misalnya kulit pisang.'),
+      findsOneWidget,
+    );
+    // Tombol untuk menjalankan misi harian.
+    expect(find.text('Mulai Misi'), findsWidgets);
 
     // Misi mingguan juga tampil.
     expect(find.text('Misi Mingguan'), findsOneWidget);
     expect(find.text('Deteksi 10 Botol Plastik'), findsOneWidget);
     expect(find.text('Coba 5 Sub-kategori Berbeda'), findsOneWidget);
+  });
+
+  testWidgets('Tombol Mulai Misi membuka halaman Pindai', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(await createWidgetUnderTest());
+    await tester.pumpAndSettle();
+
+    final startButton = find.widgetWithText(OutlinedButton, 'Mulai Misi').first;
+    await tester.ensureVisible(startButton);
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Halaman Pindai'), findsOneWidget);
   });
 
   testWidgets('Progres misi mengikuti riwayat dan bisa diklaim', (
