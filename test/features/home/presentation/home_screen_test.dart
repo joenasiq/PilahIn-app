@@ -92,6 +92,16 @@ void main() {
 
       // Tampil layar ScanScreen yang asli
       expect(find.text('Pindai Sampah'), findsWidgets);
+      // Menu bar bawah disembunyikan di halaman Pindai
+      expect(find.byType(BottomNavigationBar), findsNothing);
+
+      // Kembali ke Beranda karena menu bar disembunyikan di halaman Pindai
+      await tester.tap(find.byIcon(Icons.arrow_back_ios));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Menu bar kembali tampil di Beranda
+      expect(find.byType(BottomNavigationBar), findsOneWidget);
 
       // Pindah ke tab Profil
       await tester.tap(find.text('Profil').last);

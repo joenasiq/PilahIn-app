@@ -161,8 +161,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     
-    // Beranda
-    await tester.tap(find.byIcon(Icons.home_outlined));
+    // Kembali ke Beranda (menu bar disembunyikan di alur Pindai)
+    await tester.tap(find.byIcon(Icons.arrow_back_ios));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     
