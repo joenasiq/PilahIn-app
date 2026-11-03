@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,26 +26,34 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.imagePath != null) {
-        ref.read(classificationControllerProvider.notifier).classify(widget.imagePath!);
+        ref
+            .read(classificationControllerProvider.notifier)
+            .classify(widget.imagePath!);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<ClassificationResult?>>(classificationControllerProvider, (previous, next) {
-      if (next is AsyncData && next.value != null) {
-        ref.read(historyNotifierProvider.notifier).saveScanToHistory(next.value!).catchError((e) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Riwayat gagal disimpan'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        });
-      }
-    });
+    ref.listen<AsyncValue<ClassificationResult?>>(
+      classificationControllerProvider,
+      (previous, next) {
+        if (next is AsyncData && next.value != null) {
+          ref
+              .read(historyNotifierProvider.notifier)
+              .saveScanToHistory(next.value!)
+              .catchError((e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Riwayat gagal disimpan'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              });
+        }
+      },
+    );
 
     if (widget.imagePath == null) {
       return Scaffold(
@@ -69,7 +78,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hasil Pemindaian', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Hasil Pemindaian',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         leading: IconButton(
           tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back, color: Colors.blue),
@@ -127,7 +139,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               children: [
                 OutlinedButton(
                   onPressed: () {
-                    ref.read(classificationControllerProvider.notifier).classify(widget.imagePath!);
+                    ref
+                        .read(classificationControllerProvider.notifier)
+                        .classify(widget.imagePath!);
                   },
                   child: const Text('Coba Lagi'),
                 ),
@@ -147,10 +161,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   Widget _buildResultView(BuildContext context, ClassificationResult result) {
     final theme = Theme.of(context);
     final isOrganic = result.category == WasteCategory.organik;
-    
+
     final categoryName = isOrganic ? 'Organik' : 'Anorganik';
     final confPercent = (result.confidence * 100).toStringAsFixed(1);
-    
+
     // Warna sesuai tema
     final color = isOrganic ? Colors.green : Colors.blue;
     final progressColor = result.isUncertain ? Colors.grey : color;
@@ -184,7 +198,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 errorBuilder: (context, error, stackTrace) => Container(
                   height: 250,
                   color: Colors.grey[300],
-                  child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                  child: const Icon(
+                    Icons.broken_image,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
             ),
@@ -196,7 +214,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(20),
@@ -205,11 +226,19 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.auto_awesome, color: Colors.blue, size: 16),
+                    const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.blue,
+                      size: 16,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '+${MlConfig.scanPointsReward} Poin Pemindaian',
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -218,17 +247,30 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             const SizedBox(height: 16),
           ],
 
-          // Kategori dan Confidence
+          // Klasifikasi tingkat 1 (kategori) dan confidence
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                categoryName,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kategori',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  Text(
+                    categoryName,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
               Text(
                 '$confPercent%',
@@ -273,7 +315,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
@@ -298,7 +343,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               ),
               if (result.isHazardous)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.deepOrange.shade50,
                     borderRadius: BorderRadius.circular(20),
@@ -307,7 +355,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.warning_amber_rounded, size: 16, color: Colors.deepOrange.shade700),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 16,
+                        color: Colors.deepOrange.shade700,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Limbah B3 • Berbahaya',
@@ -371,28 +423,27 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           // Panduan Pengelolaan (3 poin ringkasan per jenis sampah)
           Text(
             'Panduan Pengelolaan',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 12),
-          ...guidance.summaryPoints.map((point) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 6.0, right: 12.0),
-                  child: CircleAvatar(
-                    radius: 4,
-                    backgroundColor: color,
+          ...guidance.summaryPoints.map(
+            (point) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6.0, right: 12.0),
+                    child: CircleAvatar(radius: 4, backgroundColor: color),
                   ),
-                ),
-                Expanded(
-                  child: Text(point),
-                ),
-              ],
+                  Expanded(child: Text(point)),
+                ],
+              ),
             ),
-          )),
-          
+          ),
+
           const SizedBox(height: 24),
 
           // Tombol Panduan Lengkap

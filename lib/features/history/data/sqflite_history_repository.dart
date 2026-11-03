@@ -1,7 +1,9 @@
 import 'dart:io';
+
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../../core/waste/waste_types.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
 import '../../scan/domain/waste_category.dart';
@@ -38,12 +40,14 @@ class SqfliteHistoryRepository implements HistoryRepository {
           )
         ''');
         await db.execute(
-          'CREATE INDEX idx_created_at ON scan_history(created_at)'
+          'CREATE INDEX idx_created_at ON scan_history(created_at)',
         );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          await db.execute('ALTER TABLE scan_history ADD COLUMN waste_type TEXT');
+          await db.execute(
+            'ALTER TABLE scan_history ADD COLUMN waste_type TEXT',
+          );
         }
       },
     );
@@ -55,7 +59,8 @@ class SqfliteHistoryRepository implements HistoryRepository {
     await db.insert(
       'scan_history',
       entry.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.ignore, // Idempotent based on scanKey
+      conflictAlgorithm:
+          ConflictAlgorithm.ignore, // Idempotent based on scanKey
     );
   }
 
@@ -83,11 +88,7 @@ class SqfliteHistoryRepository implements HistoryRepository {
   @override
   Future<void> delete(int id) async {
     final db = await database;
-    await db.delete(
-      'scan_history',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('scan_history', where: 'id = ?', whereArgs: [id]);
   }
 
   @override
@@ -111,11 +112,12 @@ class SqfliteHistoryRepository implements HistoryRepository {
   Future<Map<WasteCategory, int>> countByCategory() async {
     final db = await database;
     final results = await db.rawQuery(
-        'SELECT category, COUNT(*) as count FROM scan_history GROUP BY category');
-    
+      'SELECT category, COUNT(*) as count FROM scan_history GROUP BY category',
+    );
+
     int organik = 0;
     int anorganik = 0;
-    
+
     for (var row in results) {
       if (row['category'] == 'organik') {
         organik = row['count'] as int;
@@ -123,10 +125,34 @@ class SqfliteHistoryRepository implements HistoryRepository {
         anorganik = row['count'] as int;
       }
     }
-    
-    return {
-      WasteCategory.organik: organik,
-      WasteCategory.anorganik: anorganik,
-    };
+
+    return {WasteCategory.organik: organik, WasteCategory.anorganik: anorganik};
+  }
+
+  @override
+  Future<Map<WasteType, int>> countByWasteType() async {
+    final db = await database;
+    final results = await db.rawQuery(
+      'SELECT waste_type, COUNT(*) as count FROM scan_history '
+      'WHERE waste_type IS NOT NULL GROUP BY waste_type',
+    );
+
+    final counts = <WasteType, int>{};
+    for (final row in results) {
+      final wasteType = WasteType.fromLabelKey(row['waste_type'] as String);
+      if (wasteType != null) {
+        counts[wasteType] = row['count'] as int;
+      }
+    }
+    return counts;
+  }
+
+  @override
+  Future<int> sumPointsEarned() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT SUM(points_earned) as total FROM scan_history',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 }

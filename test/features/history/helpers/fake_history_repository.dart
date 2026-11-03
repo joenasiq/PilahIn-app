@@ -1,3 +1,4 @@
+import 'package:pilahin_app/core/waste/waste_types.dart';
 import 'package:pilahin_app/features/history/domain/history_entry.dart';
 import 'package:pilahin_app/features/history/domain/history_repository.dart';
 import 'package:pilahin_app/features/scan/domain/waste_category.dart';
@@ -44,11 +45,29 @@ class FakeHistoryRepository implements HistoryRepository {
 
   @override
   Future<Map<WasteCategory, int>> countByCategory() async {
-    int organik = _entries.where((e) => e.category == WasteCategory.organik).length;
-    int anorganik = _entries.where((e) => e.category == WasteCategory.anorganik).length;
-    return {
-      WasteCategory.organik: organik,
-      WasteCategory.anorganik: anorganik,
-    };
+    int organik = _entries
+        .where((e) => e.category == WasteCategory.organik)
+        .length;
+    int anorganik = _entries
+        .where((e) => e.category == WasteCategory.anorganik)
+        .length;
+    return {WasteCategory.organik: organik, WasteCategory.anorganik: anorganik};
+  }
+
+  @override
+  Future<Map<WasteType, int>> countByWasteType() async {
+    final counts = <WasteType, int>{};
+    for (final entry in _entries) {
+      final wasteType = entry.wasteType;
+      if (wasteType != null) {
+        counts[wasteType] = (counts[wasteType] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  @override
+  Future<int> sumPointsEarned() async {
+    return _entries.fold<int>(0, (sum, entry) => sum + entry.pointsEarned);
   }
 }

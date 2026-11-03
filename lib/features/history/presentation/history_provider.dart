@@ -1,9 +1,11 @@
 import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
+import '../domain/history_stats.dart';
 import '../data/sqflite_history_repository.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
@@ -142,36 +144,49 @@ class HistoryNotifier extends Notifier<HistoryState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       // 1. Fetch filtered by category in SQL
-      final rawEntries = await _repository.getAll(category: state.filterCategory);
-      
+      final rawEntries = await _repository.getAll(
+        category: state.filterCategory,
+      );
+
       // 2. Filter gabungan kategori & jenis sampah (AND)
       List<HistoryEntry> filteredEntries = rawEntries;
 
       if (state.filterCategory != null) {
-        filteredEntries = filteredEntries.where((entry) => entry.category == state.filterCategory).toList();
+        filteredEntries = filteredEntries
+            .where((entry) => entry.category == state.filterCategory)
+            .toList();
       }
 
       if (state.filterWasteType != null) {
-        filteredEntries = filteredEntries.where((entry) => entry.wasteType == state.filterWasteType).toList();
+        filteredEntries = filteredEntries
+            .where((entry) => entry.wasteType == state.filterWasteType)
+            .toList();
       }
 
       // 3. Pencarian mencocokkan judul, kategori, tanggal, nama jenis, dan labelKey
       if (state.searchQuery.isNotEmpty) {
         final query = state.searchQuery.toLowerCase();
         final dateFormat = DateFormat('dd MMM yyyy • HH:mm', 'id_ID');
-        
+
         filteredEntries = filteredEntries.where((entry) {
-          final title = entry.wasteType?.displayName ?? entry.itemName ?? (entry.category == WasteCategory.organik ? 'Sampah Organik' : 'Sampah Anorganik');
-          final categoryLabel = entry.category == WasteCategory.organik ? 'Organik' : 'Anorganik';
+          final title =
+              entry.wasteType?.displayName ??
+              entry.itemName ??
+              (entry.category == WasteCategory.organik
+                  ? 'Sampah Organik'
+                  : 'Sampah Anorganik');
+          final categoryLabel = entry.category == WasteCategory.organik
+              ? 'Organik'
+              : 'Anorganik';
           final wasteTypeName = entry.wasteType?.displayName ?? '';
           final wasteTypeKey = entry.wasteType?.labelKey ?? '';
           final dateStr = dateFormat.format(entry.createdAt);
-          
+
           return title.toLowerCase().contains(query) ||
-                 categoryLabel.toLowerCase().contains(query) ||
-                 wasteTypeName.toLowerCase().contains(query) ||
-                 wasteTypeKey.toLowerCase().contains(query) ||
-                 dateStr.toLowerCase().contains(query);
+              categoryLabel.toLowerCase().contains(query) ||
+              wasteTypeName.toLowerCase().contains(query) ||
+              wasteTypeKey.toLowerCase().contains(query) ||
+              dateStr.toLowerCase().contains(query);
         }).toList();
       }
 
@@ -226,10 +241,11 @@ class HistoryNotifier extends Notifier<HistoryState> {
   Future<void> saveScanToHistory(ClassificationResult result) async {
     try {
       // Idempotent key to avoid duplicate entries for the exact same scan result
-      final scanKey = '${result.imagePath}_${result.timestamp.millisecondsSinceEpoch}';
-      
+      final scanKey =
+          '${result.imagePath}_${result.timestamp.millisecondsSinceEpoch}';
+
       final points = MlConfig.showScanPoints ? MlConfig.scanPointsReward : 0;
-      
+
       final entry = HistoryEntry(
         scanKey: scanKey,
         wasteType: result.wasteType,
@@ -239,7 +255,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
         imagePath: result.imagePath,
         createdAt: result.timestamp,
       );
-      
+
       await _repository.add(entry);
       await refresh(); // Refresh list if needed
     } catch (e) {
@@ -251,5 +267,24 @@ class HistoryNotifier extends Notifier<HistoryState> {
 }
 
 final historyNotifierProvider = NotifierProvider<HistoryNotifier, HistoryState>(
-  HistoryNotifier.new
+  HistoryNotifier.new,
 );
+
+/// Statistik pemindaian (kategori, jenis sampah, dan total poin).
+/// Ikut dihitung ulang setiap riwayat berubah, misalnya setelah scan baru.
+final historyStatsProvider = FutureProvider.autoDispose<HistoryStats>((
+  ref,
+) async {
+  ref.watch(historyNotifierProvider);
+  final repository = ref.watch(historyRepositoryProvider);
+
+  final byCategory = await repository.countByCategory();
+  final byWasteType = await repository.countByWasteType();
+  final totalPoints = await repository.sumPointsEarned();
+
+  return HistoryStats(
+    byCategory: byCategory,
+    byWasteType: byWasteType,
+    totalPoints: totalPoints,
+  );
+});

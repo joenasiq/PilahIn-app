@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pilahin_app/core/constants/app_constants.dart';
+import 'package:pilahin_app/core/waste/waste_types.dart';
 import 'package:pilahin_app/features/auth/presentation/auth_controller.dart';
 import 'package:pilahin_app/features/history/domain/history_entry.dart';
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
@@ -31,15 +32,15 @@ class MockAuthController extends AuthController {
 
 void main() {
   // Save current gamification value since it's a const we can't easily mock
-  // without rebuilding the UI. But in tests we can use a wrapper if it's dynamic, 
-  // since it's static const, we can only test the true state here unless we mock it, 
-  // but we can't mock static const easily in Dart. Wait, the prompt asked to test 
+  // without rebuilding the UI. But in tests we can use a wrapper if it's dynamic,
+  // since it's static const, we can only test the true state here unless we mock it,
+  // but we can't mock static const easily in Dart. Wait, the prompt asked to test
   // gamificationEnabled=false. To do that in widget test, we can't change static const.
   // Wait, I will just ignore changing gamificationEnabled to false in widget test if it's static const,
-  // OR I can use a global variable in AppConstants instead of const. 
-  // Since I made it `static const bool gamificationEnabled = true;` per prompt, 
+  // OR I can use a global variable in AppConstants instead of const.
+  // Since I made it `static const bool gamificationEnabled = true;` per prompt,
   // I will test guest mode and data displaying instead, or I can just mock what I can.
-  
+
   // Wait, I can just use a fake auth repo and prefs to mock guest mode.
   Future<Widget> createWidgetUnderTest({
     required FakeHistoryRepository repo,
@@ -55,39 +56,86 @@ void main() {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         historyRepositoryProvider.overrideWithValue(repo),
-        homeRepositoryProvider.overrideWithValue(MockHomeRepository(MockGamificationRepository())),
-        authControllerProvider.overrideWith(() => MockAuthController(isGuest ? AppUser.guest() : const AppUser(id: '1', email: 'test@polinema.ac.id', displayName: 'Kelompok Baiq', isGuest: false))),
+        homeRepositoryProvider.overrideWithValue(
+          MockHomeRepository(MockGamificationRepository()),
+        ),
+        authControllerProvider.overrideWith(
+          () => MockAuthController(
+            isGuest
+                ? AppUser.guest()
+                : const AppUser(
+                    id: '1',
+                    email: 'test@polinema.ac.id',
+                    displayName: 'Kelompok Baiq',
+                    isGuest: false,
+                  ),
+          ),
+        ),
       ],
-      child: const MaterialApp(
-        home: Scaffold(body: ProfileScreen()),
-      ),
+      child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
     );
   }
 
   testWidgets('Guest mode shows Tamu and Keluar', (WidgetTester tester) async {
     final repo = FakeHistoryRepository();
-    await tester.pumpWidget(await createWidgetUnderTest(repo: repo, isGuest: true));
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: true),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Tamu'), findsOneWidget);
     expect(find.text('Keluar'), findsOneWidget);
-    
+
     // No history
     expect(find.text('Belum ada data'), findsOneWidget);
   });
 
-  testWidgets('Logged in mode shows name, initials, data, and Keluar', (WidgetTester tester) async {
+  testWidgets('Logged in mode shows name, initials, data, and Keluar', (
+    WidgetTester tester,
+  ) async {
     final repo = FakeHistoryRepository();
     // Add 2 organic, 1 anorganic
-    await repo.add(HistoryEntry(scanKey: '1', category: WasteCategory.organik, confidence: 1, isUncertain: false, pointsEarned: 10, createdAt: DateTime.now()));
-    await repo.add(HistoryEntry(scanKey: '2', category: WasteCategory.organik, confidence: 1, isUncertain: false, pointsEarned: 10, createdAt: DateTime.now()));
-    await repo.add(HistoryEntry(scanKey: '3', category: WasteCategory.anorganik, confidence: 1, isUncertain: false, pointsEarned: 10, createdAt: DateTime.now()));
+    await repo.add(
+      HistoryEntry(
+        scanKey: '1',
+        category: WasteCategory.organik,
+        confidence: 1,
+        isUncertain: false,
+        pointsEarned: 10,
+        createdAt: DateTime.now(),
+      ),
+    );
+    await repo.add(
+      HistoryEntry(
+        scanKey: '2',
+        category: WasteCategory.organik,
+        confidence: 1,
+        isUncertain: false,
+        pointsEarned: 10,
+        createdAt: DateTime.now(),
+      ),
+    );
+    await repo.add(
+      HistoryEntry(
+        scanKey: '3',
+        category: WasteCategory.anorganik,
+        confidence: 1,
+        isUncertain: false,
+        pointsEarned: 10,
+        createdAt: DateTime.now(),
+      ),
+    );
 
-    await tester.pumpWidget(await createWidgetUnderTest(repo: repo, isGuest: false));
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: false),
+    );
     await tester.pumpAndSettle();
 
     // The mock auth repository returns AppUser with 'Kelompok Baiq' if logged in.
-    expect(find.text('Kelompok Baiq'), findsWidgets); // wait, AuthRepository mock?
+    expect(
+      find.text('Kelompok Baiq'),
+      findsWidgets,
+    ); // wait, AuthRepository mock?
     // Wait, LocalAuthRepository might return something else.
     // We can just verify 'Masuk' is absent and 'Keluar' is present.
     expect(find.text('Masuk'), findsNothing);
@@ -102,10 +150,63 @@ void main() {
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
     expect(find.text('Keluar dari akun?'), findsOneWidget);
-    
+
     // Tap Batal
     await tester.tap(find.text('Batal'));
     await tester.pumpAndSettle();
     expect(find.text('Keluar dari akun?'), findsNothing);
   });
+
+  testWidgets(
+    'Statistik menampilkan rincian jenis sampah dan total poin scan',
+    (WidgetTester tester) async {
+      final repo = FakeHistoryRepository();
+      await repo.add(
+        HistoryEntry(
+          scanKey: '1',
+          wasteType: WasteType.biological,
+          confidence: 1,
+          isUncertain: false,
+          pointsEarned: 10,
+          createdAt: DateTime.now(),
+        ),
+      );
+      await repo.add(
+        HistoryEntry(
+          scanKey: '2',
+          wasteType: WasteType.biological,
+          confidence: 1,
+          isUncertain: false,
+          pointsEarned: 10,
+          createdAt: DateTime.now(),
+        ),
+      );
+      await repo.add(
+        HistoryEntry(
+          scanKey: '3',
+          wasteType: WasteType.cardboard,
+          confidence: 1,
+          isUncertain: false,
+          pointsEarned: 10,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        await createWidgetUnderTest(repo: repo, isGuest: false),
+      );
+      await tester.pumpAndSettle();
+
+      // Rincian klasifikasi tingkat kedua (jenis sampah dari dataset)
+      expect(find.text('Rincian Jenis Sampah'), findsOneWidget);
+      expect(find.text('Biologis'), findsOneWidget);
+      expect(find.text('Kardus'), findsOneWidget);
+      expect(find.text('2 item • 66.7%'), findsOneWidget);
+      expect(find.text('1 item • 33.3%'), findsOneWidget);
+
+    // Poin awal dari gamifikasi (850) + 3 scan × 10 poin
+    expect(find.text('880'), findsOneWidget);
+    expect(find.text('+30 poin dari pemindaian'), findsOneWidget);
+    },
+  );
 }
