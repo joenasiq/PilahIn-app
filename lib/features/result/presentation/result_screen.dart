@@ -8,9 +8,13 @@ import '../../scan/presentation/classification_controller.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../../core/constants/ml_config.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../gamification/domain/points_policy.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
+import 'widgets/eco_impact_card.dart';
+import 'widgets/point_reward_dialog.dart';
+import 'widgets/animated_reward_badge.dart';
 
 class ResultScreen extends ConsumerStatefulWidget {
   final String? imagePath;
@@ -58,6 +62,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   ),
                 );
               });
+
         }
       },
     );
@@ -91,13 +96,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         ),
         leading: IconButton(
           tooltip: 'Kembali',
-          icon: const Icon(Icons.arrow_back, color: Colors.blue),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primaryGreen),
           onPressed: () => context.go('/scan'),
         ),
         actions: [
           IconButton(
             tooltip: 'Riwayat Pemindaian',
-            icon: const Icon(Icons.history, color: Colors.blue),
+            icon: const Icon(Icons.history, color: AppColors.primaryGreen),
             onPressed: () => context.push('/home/riwayat'),
           ),
         ],
@@ -207,7 +212,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     final confPercent = (result.confidence * 100).toStringAsFixed(1);
 
     // Warna sesuai tema
-    final color = isOrganic ? Colors.green : Colors.blue;
+    final color = isOrganic ? AppColors.organicGreen : AppColors.primaryGreen;
     final progressColor = result.isUncertain ? Colors.grey : color;
 
     final guidance = GuidanceContent.getGuidance(result.wasteType);
@@ -429,6 +434,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
 
           if (!result.isUncertain) const SizedBox(height: 8),
 
+          // Kartu Dampak Lingkungan (Eco-Impact)
+          EcoImpactCard(wasteType: result.wasteType),
+          const SizedBox(height: 24),
+
           // Panduan Pengelolaan (3 poin ringkasan per jenis sampah)
           Text(
             'Panduan Pengelolaan',
@@ -461,7 +470,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               context.push('/scan/panduan', extra: result);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: AppColors.primaryGreen,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -486,8 +495,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue,
-              side: const BorderSide(color: Colors.blue, width: 1.5),
+              foregroundColor: AppColors.primaryGreen,
+              side: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(100),

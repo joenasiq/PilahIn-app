@@ -12,6 +12,7 @@ import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../result/data/guidance_content.dart';
 import '../../../core/waste/waste_types.dart';
+import '../../../core/theme/app_colors.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -49,8 +50,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           'Riwayat Pemindaian',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+
         leading: IconButton(
           tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back),
@@ -163,7 +163,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ? const Icon(Icons.close, size: 16, color: Colors.white)
           : null,
       deleteButtonTooltipMessage: 'Hapus filter sub-kategori',
-      selectedColor: Colors.blue,
+      selectedColor: AppColors.primaryGreen,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -228,7 +228,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       title: const Text('Semua sub-kategori'),
                       selected: state.filterWasteType == null,
                       trailing: state.filterWasteType == null
-                          ? const Icon(Icons.check, color: Colors.blue)
+                          ? const Icon(
+                              Icons.check,
+                              color: AppColors.primaryGreen,
+                            )
                           : null,
                       onTap: () {
                         notifier.setFilterWasteType(null);
@@ -241,8 +244,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         leading: Icon(
                           type.icon,
                           color: type.category == WasteCategory.organik
-                              ? Colors.green
-                              : Colors.blue,
+                              ? AppColors.organicGreen
+                              : AppColors.primaryGreen,
                         ),
                         title: Text(type.displayName),
                         subtitle: Text(
@@ -255,7 +258,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         ),
                         selected: isSelected,
                         trailing: isSelected
-                            ? const Icon(Icons.check, color: Colors.blue)
+                            ? const Icon(
+                                Icons.check,
+                                color: AppColors.primaryGreen,
+                              )
                             : null,
                         onTap: () {
                           notifier.setFilterWasteType(type);
@@ -286,7 +292,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       onSelected: (selected) {
         notifier.setFilterCategory(category);
       },
-      selectedColor: Colors.blue,
+      selectedColor: AppColors.primaryGreen,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -360,7 +366,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ElevatedButton(
                 onPressed: () => context.go('/scan'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AppColors.primaryGreen,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -386,7 +392,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   Widget _buildHistoryCard(HistoryEntry entry, HistoryNotifier notifier) {
     final isOrganic = entry.category == WasteCategory.organik;
-    final color = isOrganic ? Colors.green : Colors.blue;
+    final color = isOrganic ? AppColors.organicGreen : AppColors.primaryGreen;
     final icon =
         entry.wasteType?.icon ?? (isOrganic ? Icons.eco : Icons.recycling);
     final title =
@@ -561,7 +567,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppColors.primaryGreen.withAlpha(25),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
@@ -571,14 +577,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             'Lihat',
                             style: TextStyle(
                               fontSize: 11,
-                              color: Colors.blue,
+                              color: AppColors.primaryGreen,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Icon(
                             Icons.chevron_right,
                             size: 14,
-                            color: Colors.blue,
+                            color: AppColors.primaryGreen,
                           ),
                         ],
                       ),
@@ -595,7 +601,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   void _showEntryDetail(BuildContext context, HistoryEntry entry) {
     final isOrganic = entry.category == WasteCategory.organik;
-    final color = isOrganic ? Colors.green : Colors.blue;
+    final color = isOrganic ? AppColors.organicGreen : AppColors.primaryGreen;
     final title =
         entry.wasteType?.displayName ??
         (isOrganic ? 'Sampah Organik' : 'Sampah Anorganik');
@@ -779,7 +785,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
+                                  color: AppColors.primaryGreen,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -848,7 +854,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       icon: const Icon(Icons.menu_book),
                       label: const Text('Lihat Panduan Lengkap'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: AppColors.primaryGreen,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

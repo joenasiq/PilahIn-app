@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/mission.dart';
 
 class MissionCardWidget extends StatelessWidget {
@@ -72,13 +73,13 @@ class MissionCardWidget extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppColors.primaryGreen.withAlpha(25),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '+${mission.hadiahPoin} Poin',
-                    style: TextStyle(
-                      color: Colors.blue.shade700,
+                    style: const TextStyle(
+                      color: AppColors.primaryGreen,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -108,7 +109,9 @@ class MissionCardWidget extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: pct,
                 backgroundColor: Colors.grey.shade200,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryGreen,
+                ),
                 minHeight: 8,
               ),
             ),
@@ -123,7 +126,7 @@ class MissionCardWidget extends StatelessWidget {
                 Text(
                   '$pctText%',
                   style: const TextStyle(
-                    color: Colors.blue,
+                    color: AppColors.primaryGreen,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
@@ -140,7 +143,7 @@ class MissionCardWidget extends StatelessWidget {
                     icon: const Icon(Icons.card_giftcard, size: 18),
                     label: const Text('Klaim Hadiah'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: AppColors.primaryGreen,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
@@ -158,8 +161,11 @@ class MissionCardWidget extends StatelessWidget {
                     icon: const Icon(Icons.crop_free, size: 18),
                     label: Text(isCompleted ? 'Pindai Lagi' : 'Mulai Misi'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue, width: 1.5),
+                      foregroundColor: AppColors.primaryGreen,
+                      side: const BorderSide(
+                        color: AppColors.primaryGreen,
+                        width: 1.5,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
