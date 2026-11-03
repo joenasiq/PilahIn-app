@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pilahin_app/core/constants/app_constants.dart';
 import 'package:pilahin_app/core/constants/ml_config.dart';
 import 'package:pilahin_app/core/waste/waste_types.dart';
+import 'package:pilahin_app/features/auth/presentation/auth_controller.dart';
+import 'package:pilahin_app/features/history/domain/history_entry.dart';
+import 'package:pilahin_app/features/history/presentation/history_provider.dart';
 import 'package:pilahin_app/features/result/presentation/guidance_screen.dart';
 import 'package:pilahin_app/features/result/presentation/result_screen.dart';
 import 'package:pilahin_app/features/scan/domain/classification_result.dart';
 import 'package:pilahin_app/features/scan/presentation/classification_controller.dart';
 
+import '../../history/helpers/fake_history_repository.dart';
+
 // Controller tiruan
-class MockClassificationController extends AsyncNotifier<ClassificationResult?> implements ClassificationController {
+class MockClassificationController extends AsyncNotifier<ClassificationResult?>
+    implements ClassificationController {
   @override
   Future<ClassificationResult?> build() async => null;
 
@@ -78,17 +86,23 @@ void main() {
   late MockClassificationController mockController;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockController = MockClassificationController();
     MlConfig.showScanPoints = true; // reset
   });
 
-  Widget createTestWidget(Widget child) {
+  Future<Widget> createTestWidget(
+    Widget child, {
+    FakeHistoryRepository? repository,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
     final router = GoRouter(
       initialLocation: '/scan/hasil',
       routes: [
         GoRoute(
           path: '/scan/hasil',
-          builder: (context, state) => const ResultScreen(imagePath: 'dummy.jpg'),
+          builder: (context, state) =>
+              const ResultScreen(imagePath: 'dummy.jpg'),
         ),
         GoRoute(
           path: '/scan/panduan',
@@ -103,39 +117,85 @@ void main() {
     return ProviderScope(
       overrides: [
         classificationControllerProvider.overrideWith(() => mockController),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        historyRepositoryProvider.overrideWithValue(
+          repository ?? FakeHistoryRepository(),
+        ),
+        currentUserIdProvider.overrideWithValue(AppConstants.demoUserId),
       ],
-      child: MaterialApp.router(
-        routerConfig: router,
-      ),
+      child: MaterialApp.router(routerConfig: router),
     );
   }
 
-  testWidgets('Menampilkan hasil cardboard: Anorganik dan chip Kardus', (tester) async {
-    await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
+  testWidgets('Menampilkan hasil cardboard: Anorganik dan chip Kardus', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      await createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')),
+    );
     mockController.setCardboard();
     await tester.pumpAndSettle();
 
     expect(find.text('Anorganik'), findsOneWidget);
     expect(find.text('94.2%'), findsOneWidget);
-    expect(find.text('Jenis sampah'), findsOneWidget);
+    expect(find.text('Sub-kategori'), findsOneWidget);
     expect(find.text('Kardus'), findsOneWidget);
     expect(find.text('Limbah B3 • Berbahaya'), findsNothing);
   });
 
-  testWidgets('Menampilkan hasil biological: Organik dan chip Biologis', (tester) async {
-    await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
+  testWidgets('Menampilkan hasil biological: Organik dan chip Biologis', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      await createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')),
+    );
     mockController.setBiological();
     await tester.pumpAndSettle();
 
     expect(find.text('Organik'), findsOneWidget);
     expect(find.text('92.7%'), findsOneWidget);
     expect(find.text('Biologis'), findsOneWidget);
-    expect(find.text('+15 Poin Pemindaian'), findsOneWidget);
+    expect(find.text('+10 Poin • Sub-kategori baru hari ini'), findsOneWidget);
     expect(find.text('Limbah B3 • Berbahaya'), findsNothing);
   });
 
-  testWidgets('Menampilkan hasil battery: Anorganik dan chip B3', (tester) async {
-    await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
+  testWidgets('Scan ulang sub-kategori yang sama mendapat 5 poin', (
+    tester,
+  ) async {
+    final repository = FakeHistoryRepository();
+    await repository.add(
+      HistoryEntry(
+        scanKey: 'existing_biological',
+        userId: AppConstants.demoUserId,
+        wasteType: WasteType.biological,
+        confidence: 0.9,
+        isUncertain: false,
+        pointsEarned: 10,
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    await tester.pumpWidget(
+      await createTestWidget(
+        const ResultScreen(imagePath: 'dummy.jpg'),
+        repository: repository,
+      ),
+    );
+    mockController.setBiological();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('+5 Poin • Sudah pernah dipindai hari ini'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Menampilkan hasil battery: Anorganik dan chip B3', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      await createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')),
+    );
     mockController.setBattery();
     await tester.pumpAndSettle();
 
@@ -145,40 +205,55 @@ void main() {
     expect(find.text('Limbah B3 • Berbahaya'), findsOneWidget);
   });
 
-  testWidgets('Menampilkan keadaan tidak yakin: Mungkin: Plastik dan banner', (tester) async {
-    await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
+  testWidgets('Menampilkan keadaan tidak yakin: Mungkin: Plastik dan banner', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      await createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')),
+    );
     mockController.setUncertainPlastic();
     await tester.pumpAndSettle();
 
     expect(find.text('48.0%'), findsOneWidget);
     expect(find.text('Mungkin: Plastik'), findsOneWidget);
-    expect(find.text('Hasil kurang yakin. Coba pindai ulang dengan pencahayaan lebih terang dan objek lebih dekat.'), findsOneWidget);
+    expect(
+      find.text(
+        'Hasil kurang yakin. Coba pindai ulang dengan pencahayaan lebih terang dan objek lebih dekat.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Pindai Ulang'), findsOneWidget);
+    expect(find.text('+3 Poin • Hasil belum yakin'), findsOneWidget);
   });
 
-  testWidgets('Tombol Panduan Lengkap membuka layar panduan dengan nama jenis', (tester) async {
-    await tester.pumpWidget(createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')));
-    mockController.setCardboard();
-    await tester.pumpAndSettle();
+  testWidgets(
+    'Tombol Panduan Lengkap membuka layar panduan dengan nama jenis',
+    (tester) async {
+      await tester.pumpWidget(
+        await createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')),
+      );
+      mockController.setCardboard();
+      await tester.pumpAndSettle();
 
-    final btn = find.text('Panduan Lengkap');
-    expect(btn, findsOneWidget);
-    await tester.ensureVisible(btn);
+      final btn = find.text('Panduan Lengkap');
+      expect(btn, findsOneWidget);
+      await tester.ensureVisible(btn);
 
-    await tester.tap(btn);
-    await tester.pumpAndSettle();
+      await tester.tap(btn);
+      await tester.pumpAndSettle();
 
-    // Harusnya masuk ke layar Panduan Pengelolaan
-    expect(find.byType(GuidanceScreen), findsOneWidget);
-    // Chip jenis dan judul menggunakan nama jenis: Kardus
-    expect(find.text('Kardus'), findsWidgets);
-    expect(find.text('Cara Pengolahan'), findsOneWidget);
+      // Harusnya masuk ke layar Panduan Pengelolaan
+      expect(find.byType(GuidanceScreen), findsOneWidget);
+      // Chip jenis dan judul menggunakan nama jenis: Kardus
+      expect(find.text('Kardus'), findsWidgets);
+      expect(find.text('Cara Pengolahan'), findsOneWidget);
 
-    // Back
-    final backBtn = find.byIcon(Icons.arrow_back).first;
-    await tester.tap(backBtn);
-    await tester.pumpAndSettle();
+      // Back
+      final backBtn = find.byIcon(Icons.arrow_back).first;
+      await tester.tap(backBtn);
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ResultScreen), findsOneWidget);
-  });
+      expect(find.byType(ResultScreen), findsOneWidget);
+    },
+  );
 }

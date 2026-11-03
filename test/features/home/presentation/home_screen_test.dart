@@ -9,20 +9,28 @@ import 'package:pilahin_app/features/scan/data/scan_camera_service.dart';
 import 'package:pilahin_app/features/scan/data/gallery_picker_service.dart';
 import 'package:pilahin_app/features/scan/presentation/scan_controller.dart';
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
+
 import '../../history/helpers/fake_history_repository.dart';
+
 import 'package:pilahin_app/features/gamification/presentation/gamification_provider.dart';
 import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
 
 class _MockCameraService implements ScanCameraService {
-  @override Future<void> initialize() async {}
-  @override Future<void> dispose() async {}
-  @override Future<String?> takePicture() async => null;
-  @override Future<void> setFlash(bool isFlashOn) async {}
-  @override Widget getPreviewWidget() => const SizedBox();
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<void> dispose() async {}
+  @override
+  Future<String?> takePicture() async => null;
+  @override
+  Future<void> setFlash(bool isFlashOn) async {}
+  @override
+  Widget getPreviewWidget() => const SizedBox();
 }
 
 class _MockGalleryService implements GalleryPickerService {
-  @override Future<String?> pickImage() async => null;
+  @override
+  Future<String?> pickImage() async => null;
 }
 
 void main() {
@@ -42,7 +50,9 @@ void main() {
           scanCameraServiceProvider.overrideWithValue(_MockCameraService()),
           galleryPickerServiceProvider.overrideWithValue(_MockGalleryService()),
           historyRepositoryProvider.overrideWithValue(FakeHistoryRepository()),
-          gamificationRepositoryProvider.overrideWithValue(MockGamificationRepository()),
+          gamificationRepositoryProvider.overrideWithValue(
+            MockGamificationRepository(),
+          ),
         ],
         child: const App(),
       ),
@@ -53,18 +63,25 @@ void main() {
   group('HomeScreen & Bottom Nav Tests', () {
     testWidgets('menampilkan data dummy di Beranda', (tester) async {
       await pumpApp(tester);
-      
+
       // Pastikan berada di Beranda
       expect(find.text('Beranda'), findsWidgets);
-      
+
       // Tunggu FutureProvider selesai
       await tester.pumpAndSettle();
 
       // Cek teks dari data dummy
       expect(find.textContaining('Level 3: Penyelamat Bumi'), findsOneWidget);
-      expect(find.text('850 Poin'), findsOneWidget);
+      // 850 poin dasar demo + 2 poin hadiah login hari pertama
+      expect(find.text('852 Poin'), findsOneWidget);
       expect(find.text('7 Hari Beruntun!'), findsOneWidget);
       expect(find.text('Pilah 3 Sampah Organik'), findsOneWidget);
+      // Card misi di Beranda punya deskripsi dan tombol menjalankan misi.
+      expect(
+        find.text('Pindai 3 sampah organik seperti sisa makanan atau daun.'),
+        findsOneWidget,
+      );
+      expect(find.text('Mulai Misi'), findsOneWidget);
     });
 
     testWidgets('navigasi ke Riwayat', (tester) async {
@@ -92,12 +109,22 @@ void main() {
 
       // Tampil layar ScanScreen yang asli
       expect(find.text('Pindai Sampah'), findsWidgets);
+      // Menu bar bawah disembunyikan di halaman Pindai
+      expect(find.byType(BottomNavigationBar), findsNothing);
+
+      // Kembali ke Beranda karena menu bar disembunyikan di halaman Pindai
+      await tester.tap(find.byIcon(Icons.arrow_back_ios));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Menu bar kembali tampil di Beranda
+      expect(find.byType(BottomNavigationBar), findsOneWidget);
 
       // Pindah ke tab Profil
       await tester.tap(find.text('Profil').last);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      
+
       expect(find.text('Keluar'), findsWidgets);
     });
   });
