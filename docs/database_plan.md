@@ -32,9 +32,9 @@ last_active_date : String? -- 'YYYY-MM-DD' (zona waktu lokal)
 created_at       : Timestamp
 ```
 
-### `users/{uid}/scans/{scanKey}` (doc ID = scanKey → idempoten)
+### `users/{uid}/scans/{docId}` (doc ID = scanKey tersanitasi: `/` & `\` → `_`; idempoten)
 ```
-scan_key      : String (== doc ID)
+scan_key      : String  -- kunci idempotensi asli (bisa berisi '/')
 user_id       : String (== uid)
 waste_type    : String?   -- labelKey, mis. 'plastic'
 category      : String    -- 'organik' | 'anorganik'

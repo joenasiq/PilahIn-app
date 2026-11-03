@@ -7,7 +7,8 @@ import '../domain/history_repository.dart';
 /// Repository riwayat pengguna akun, berbasis Cloud Firestore.
 ///
 /// Lokasi data: `users/{uid}/scans/{docId}`
-/// - Doc ID = `scanKey` -> idempotency scan yang sama otomatis (set merge).
+/// - Doc ID = `scanKey` tersanitasi (lihat [_docIdFor]) -> idempotency
+///   scan yang sama otomatis (set merge).
 /// - Gambar TIDAK diunggah; field `image_path` hanya menyimpan path file
 ///   lokal di perangkat (sesuai keputusan tim: gambar lokal saja).
 /// - `HistoryEntry.id` (int, dipakai UI untuk hapus/restore) adalah posisi
@@ -24,9 +25,16 @@ class FirebaseHistoryRepository implements HistoryRepository {
 
   final Map<int, String> _docIdsByIntId = {};
 
+  /// Doc ID Firestore tidak boleh mengandung '/', '\', atau null char.
+  /// [scanKey] berisi path gambar (mis. `/data/user/0/.../img.jpg_123`)
+  /// sehingga harus disanitasi. Deterministik: scan yang sama selalu
+  /// menghasilkan doc ID yang sama (idempotency tetap terjaga).
+  String _docIdFor(String scanKey) =>
+      scanKey.replaceAll('/', '_').replaceAll('\\', '_');
+
   @override
   Future<void> add(HistoryEntry entry) async {
-    final doc = _scans.doc(entry.scanKey);
+    final doc = _scans.doc(_docIdFor(entry.scanKey));
     await doc.set(_toData(entry), SetOptions(merge: true));
   }
 
@@ -64,8 +72,8 @@ class FirebaseHistoryRepository implements HistoryRepository {
 
   @override
   Future<void> restore(HistoryEntry entry) async {
-    // Pulihkan berdasarkan scanKey (doc ID = scanKey).
-    final doc = _scans.doc(entry.scanKey);
+    // Pulihkan berdasarkan scanKey (doc ID = scanKey tersanitasi).
+    final doc = _scans.doc(_docIdFor(entry.scanKey));
     await doc.set(_toData(entry), SetOptions(merge: true));
   }
 
