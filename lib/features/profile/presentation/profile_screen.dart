@@ -258,12 +258,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Kategori Utama',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'Kategori Utama',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Total ${data.total} pemindaian',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -309,17 +320,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ),
                     ],
                   ),
-                  if (stats.sortedWasteTypes.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Divider(height: 1),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Rincian Jenis Sampah',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Rincian Jenis Sampah',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
+                      const Spacer(),
+                      if (stats.typedTotal > 0)
+                        Text(
+                          '${stats.typedTotal} terklasifikasi',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (stats.sortedWasteTypes.isEmpty)
+                    Text(
+                      'Rincian jenis sampah belum tersedia',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade500,
+                      ),
+                    )
+                  else
                     ...stats.sortedWasteTypes.map(
                       (entry) => _buildWasteTypeStatItem(
                         entry.key,
@@ -327,7 +357,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         stats.typedTotal,
                       ),
                     ),
-                  ],
                 ],
               );
             },
@@ -348,21 +377,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   /// Satu baris rincian klasifikasi tingkat kedua (jenis sampah).
+  ///
+  /// Menampilkan persentase terhadap total pemindaian yang sudah
+  /// terklasifikasi ke jenis dataset, beserta progress bar-nya.
   Widget _buildWasteTypeStatItem(WasteType wasteType, int count, int total) {
     final isOrganic = wasteType.category == WasteCategory.organik;
     final color = isOrganic ? Colors.green : Colors.blue;
-    final pct = total == 0 ? 0.0 : (count / total) * 100;
+    final ratio = total == 0 ? 0.0 : count / total;
+    final pct = (ratio * 100).toStringAsFixed(1);
     final categoryLabel = isOrganic
         ? 'Organik'
         : (wasteType.isHazardous ? 'Anorganik • B3' : 'Anorganik');
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: color.withAlpha(25),
               borderRadius: BorderRadius.circular(8),
@@ -374,23 +408,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  wasteType.displayName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        wasteType.displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$pct%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  categoryLabel,
+                  '$categoryLabel • $count item',
                   style: const TextStyle(color: Colors.grey, fontSize: 11),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 5,
+                    color: color,
+                    backgroundColor: color.withAlpha(30),
+                  ),
                 ),
               ],
             ),
-          ),
-          Text(
-            '$count item • ${pct.toStringAsFixed(1)}%',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
       ),
@@ -422,25 +477,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Widget _buildLegendItem(String label, int count, double ratio, Color color) {
     final pct = (ratio * 100).toStringAsFixed(1);
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          margin: const EdgeInsets.only(top: 4, right: 8),
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(
-                '$count item ($pct%)',
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            ],
+            ),
+            Text(
+              '$pct%',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: Text(
+            '$count item',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 5,
+              color: color,
+              backgroundColor: color.withAlpha(30),
+            ),
           ),
         ),
       ],

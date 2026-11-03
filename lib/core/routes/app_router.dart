@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../widgets/main_wrapper.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/register_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/scan/presentation/scan_screen.dart';
@@ -48,15 +49,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final isAuth = authState.value != null;
-      final isLoggingIn = state.matchedLocation == '/login';
+      final isAuthRoute =
+          state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register';
 
-      // Jika belum login dan tidak sedang di halaman login, arahkan ke login
-      if (!isAuth && !isLoggingIn) {
+      // Jika belum login dan tidak sedang di halaman login/daftar, arahkan ke login
+      if (!isAuth && !isAuthRoute) {
         return '/login';
       }
 
-      // Jika sudah login tapi masih di halaman login, arahkan ke home
-      if (isAuth && isLoggingIn) {
+      // Jika sudah login tapi masih di halaman login/daftar, arahkan ke home
+      if (isAuth && isAuthRoute) {
         return '/home';
       }
 
@@ -68,7 +71,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Halaman tidak ditemukan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Halaman tidak ditemukan',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => context.go('/home'),
@@ -83,11 +89,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
       ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
-      
+
       // Rute tanpa bottom nav (layar detail yang benar-benar fullscreen, jika ada)
       GoRoute(
         path: '/badge-detail',

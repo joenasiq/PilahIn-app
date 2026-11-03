@@ -141,9 +141,12 @@ void main() {
     expect(find.text('Masuk'), findsNothing);
     expect(find.text('Keluar'), findsOneWidget);
 
-    // Verify Legend
-    expect(find.text('2 item (66.7%)'), findsOneWidget); // organic
-    expect(find.text('1 item (33.3%)'), findsOneWidget); // anorganic
+    // Verify Legend beserta persentase kategori
+    expect(find.text('66.7%'), findsOneWidget); // organic
+    expect(find.text('33.3%'), findsOneWidget); // anorganic
+    expect(find.text('2 item'), findsOneWidget); // organic
+    expect(find.text('1 item'), findsOneWidget); // anorganic
+    expect(find.textContaining('Total 3 pemindaian'), findsOneWidget);
 
     // Tap Keluar should show dialog
     await tester.ensureVisible(find.text('Keluar'));
@@ -201,12 +204,16 @@ void main() {
       expect(find.text('Rincian Jenis Sampah'), findsOneWidget);
       expect(find.text('Biologis'), findsOneWidget);
       expect(find.text('Kardus'), findsOneWidget);
-      expect(find.text('2 item • 66.7%'), findsOneWidget);
-      expect(find.text('1 item • 33.3%'), findsOneWidget);
+      expect(find.text('Organik • 2 item'), findsOneWidget);
+      expect(find.text('Anorganik • 1 item'), findsOneWidget);
+      // Persentase pada kategori dan rincian jenis sama-sama tampil
+      expect(find.text('66.7%'), findsNWidgets(2));
+      expect(find.text('33.3%'), findsNWidgets(2));
+      expect(find.text('3 terklasifikasi'), findsOneWidget);
 
-    // Poin awal dari gamifikasi (850) + 3 scan × 10 poin
-    expect(find.text('880'), findsOneWidget);
-    expect(find.text('+30 poin dari pemindaian'), findsOneWidget);
+      // Poin awal dari gamifikasi (850) + 3 scan × 10 poin
+      expect(find.text('880'), findsOneWidget);
+      expect(find.text('+30 poin dari pemindaian'), findsOneWidget);
     },
   );
 }

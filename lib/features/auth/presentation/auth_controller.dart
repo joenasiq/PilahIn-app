@@ -39,6 +39,25 @@ class AuthController extends AsyncNotifier<AppUser?> {
     }
   }
 
+  Future<void> register({
+    required String displayName,
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      final user = await repo.register(
+        displayName: displayName,
+        email: email,
+        password: password,
+      );
+      state = AsyncValue.data(user);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> loginAsGuest() async {
     state = const AsyncValue.loading();
     try {
@@ -62,6 +81,8 @@ class AuthController extends AsyncNotifier<AppUser?> {
   }
 }
 
-final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(() {
-  return AuthController();
-});
+final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(
+  () {
+    return AuthController();
+  },
+);
