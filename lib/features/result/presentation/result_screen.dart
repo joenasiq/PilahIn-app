@@ -8,6 +8,7 @@ import '../../scan/presentation/classification_controller.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../../core/constants/ml_config.dart';
+import '../../gamification/domain/points_policy.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
 
@@ -21,6 +22,8 @@ class ResultScreen extends ConsumerStatefulWidget {
 }
 
 class _ResultScreenState extends ConsumerState<ResultScreen> {
+  ScanPointResult? _pointResult;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +45,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ref
               .read(historyNotifierProvider.notifier)
               .saveScanToHistory(next.value!)
+              .then((pointResult) {
+                if (!context.mounted) return;
+                setState(() => _pointResult = pointResult);
+              })
               .catchError((e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -102,6 +109,40 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         },
         error: (err, stack) => _buildErrorView(context),
         loading: () => _buildLoadingView(),
+      ),
+    );
+  }
+
+  Widget _buildPointChip() {
+    final pointResult = _pointResult;
+    final text = pointResult?.message ?? 'Menghitung poin...';
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.blue, size: 16),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -209,41 +250,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Poin Pemindaian (Jika aktif)
+          // Poin Pemindaian (Jika aktif) — poin aktual sesuai aturan
           if (MlConfig.showScanPoints) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.blue,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '+${MlConfig.scanPointsReward} Poin Pemindaian',
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildPointChip(),
             const SizedBox(height: 16),
           ],
 
@@ -301,14 +310,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Baris Jenis Sampah & Tag B3
+          // Sub-kategori (klasifikasi tingkat 2) & Tag B3
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 8,
             runSpacing: 8,
             children: [
               Text(
-                'Jenis sampah',
+                'Sub-kategori',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: Colors.grey.shade600,
                   fontSize: 13,

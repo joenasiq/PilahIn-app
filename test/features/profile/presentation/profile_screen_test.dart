@@ -56,6 +56,10 @@ void main() {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         historyRepositoryProvider.overrideWithValue(repo),
+        currentUserIdProvider.overrideWithValue(
+          isGuest ? AppConstants.guestUserId : AppConstants.demoUserId,
+        ),
+        isDemoOrGuestProvider.overrideWithValue(isGuest),
         homeRepositoryProvider.overrideWithValue(
           MockHomeRepository(MockGamificationRepository()),
         ),
@@ -201,7 +205,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Rincian klasifikasi tingkat kedua (jenis sampah dari dataset)
-      expect(find.text('Rincian Jenis Sampah'), findsOneWidget);
+      expect(find.text('Rincian Sub-kategori'), findsOneWidget);
       expect(find.text('Biologis'), findsOneWidget);
       expect(find.text('Kardus'), findsOneWidget);
       expect(find.text('Organik • 2 item'), findsOneWidget);
@@ -211,9 +215,9 @@ void main() {
       expect(find.text('33.3%'), findsNWidgets(2));
       expect(find.text('3 terklasifikasi'), findsOneWidget);
 
-      // Poin awal dari gamifikasi (850) + 3 scan × 10 poin
-      expect(find.text('880'), findsOneWidget);
-      expect(find.text('+30 poin dari pemindaian'), findsOneWidget);
+      // Akun non-demo: poin hanya dari scan (3 × 10) + breakdown harian
+      expect(find.text('30'), findsOneWidget);
+      expect(find.text('Scan 30 • Login 0 • Hari ini 0/150'), findsOneWidget);
     },
   );
 }

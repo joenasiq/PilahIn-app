@@ -62,7 +62,8 @@ void main() {
 
       // Cek teks dari data dummy
       expect(find.textContaining('Level 3: Penyelamat Bumi'), findsOneWidget);
-      expect(find.text('850 Poin'), findsOneWidget);
+      // 850 poin dasar demo + 2 poin hadiah login hari pertama
+      expect(find.text('852 Poin'), findsOneWidget);
       expect(find.text('7 Hari Beruntun!'), findsOneWidget);
       expect(find.text('Pilah 3 Sampah Organik'), findsOneWidget);
     });

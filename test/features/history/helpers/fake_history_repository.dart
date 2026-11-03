@@ -18,8 +18,26 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<int> count() async {
-    return _entries.length;
+  Future<int> count({required String userId}) async {
+    return _entries.where((e) => e.userId == userId).length;
+  }
+
+  @override
+  Future<List<HistoryEntry>> getBetween({
+    required String userId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final list = _entries
+        .where(
+          (e) =>
+              e.userId == userId &&
+              !e.createdAt.isBefore(start) &&
+              e.createdAt.isBefore(end),
+        )
+        .toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   @override
@@ -28,8 +46,11 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<List<HistoryEntry>> getAll({WasteCategory? category}) async {
-    var list = _entries;
+  Future<List<HistoryEntry>> getAll({
+    required String userId,
+    WasteCategory? category,
+  }) async {
+    var list = _entries.where((e) => e.userId == userId).toList();
     if (category != null) {
       list = list.where((e) => e.category == category).toList();
     }
@@ -44,20 +65,24 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<Map<WasteCategory, int>> countByCategory() async {
-    int organik = _entries
+  Future<Map<WasteCategory, int>> countByCategory({
+    required String userId,
+  }) async {
+    final valid = _entries.where((e) => e.userId == userId && !e.isUncertain);
+    int organik = valid
         .where((e) => e.category == WasteCategory.organik)
         .length;
-    int anorganik = _entries
+    int anorganik = valid
         .where((e) => e.category == WasteCategory.anorganik)
         .length;
     return {WasteCategory.organik: organik, WasteCategory.anorganik: anorganik};
   }
 
   @override
-  Future<Map<WasteType, int>> countByWasteType() async {
+  Future<Map<WasteType, int>> countByWasteType({required String userId}) async {
     final counts = <WasteType, int>{};
     for (final entry in _entries) {
+      if (entry.userId != userId || entry.isUncertain) continue;
       final wasteType = entry.wasteType;
       if (wasteType != null) {
         counts[wasteType] = (counts[wasteType] ?? 0) + 1;
@@ -67,7 +92,26 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<int> sumPointsEarned() async {
-    return _entries.fold<int>(0, (sum, entry) => sum + entry.pointsEarned);
+  Future<int> sumPointsEarned({required String userId}) async {
+    return _entries
+        .where((e) => e.userId == userId)
+        .fold<int>(0, (sum, entry) => sum + entry.pointsEarned);
+  }
+
+  @override
+  Future<bool> hasScannedWasteTypeOn({
+    required String userId,
+    required WasteType wasteType,
+    required DateTime day,
+  }) async {
+    return _entries.any(
+      (e) =>
+          e.userId == userId &&
+          !e.isUncertain &&
+          e.wasteType == wasteType &&
+          e.createdAt.year == day.year &&
+          e.createdAt.month == day.month &&
+          e.createdAt.day == day.day,
+    );
   }
 }

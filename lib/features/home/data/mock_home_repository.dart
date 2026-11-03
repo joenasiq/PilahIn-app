@@ -1,4 +1,3 @@
-import '../domain/daily_mission.dart';
 import '../domain/home_summary.dart';
 import 'home_repository.dart';
 import '../../gamification/domain/gamification_repository.dart';
@@ -9,33 +8,30 @@ class MockHomeRepository implements HomeRepository {
   MockHomeRepository(this.gamificationRepo);
 
   @override
-  Future<HomeSummary> getHomeSummary({required String userName}) async {
+  Future<HomeSummary> getHomeSummary({
+    required String userName,
+    required bool isDemoOrGuest,
+  }) async {
     // Delay simulasi jaringan
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     final badges = await gamificationRepo.getBadges();
     final unlocked = badges.where((b) => b.isOpen).length;
     final total = badges.length;
 
-    // Data ini sementara sesuai dengan desain UI
+    // Data level, streak, dan misi masih dummy. Poin dasar 850 hanya untuk
+    // akun demo/tamu; akun baru mulai dari 0.
     return HomeSummary(
       userName: userName,
-      levelName: 'Penyelamat Bumi',
-      level: 3,
-      points: 850,
-      pointsToNextLevel: 150,
-      streakDays: 7,
+      levelName: isDemoOrGuest ? 'Penyelamat Bumi' : 'Pemilah Pemula',
+      level: isDemoOrGuest ? 3 : 1,
+      points: isDemoOrGuest ? 850 : 0,
+      pointsToNextLevel: isDemoOrGuest ? 150 : 100,
+      streakDays: isDemoOrGuest ? 7 : 0,
       unlockedBadges: unlocked,
       totalBadges: total,
-      dailyMissions: [
-        DailyMission(
-          title: 'Pilah 3 Sampah Organik',
-          currentProgress: 2,
-          targetProgress: 3,
-          rewardPoints: 30,
-          status: 'Berjalan',
-        ),
-      ],
+      // Misi kini dihitung dinamis dari riwayat (lihat mission_provider).
+      dailyMissions: const [],
     );
   }
 }

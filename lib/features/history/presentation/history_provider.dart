@@ -7,6 +7,9 @@ import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
 import '../domain/history_stats.dart';
 import '../data/sqflite_history_repository.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../../gamification/data/points_ledger_service.dart';
+import '../../gamification/domain/points_policy.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../../core/constants/ml_config.dart';
@@ -79,11 +82,13 @@ class HistoryState {
 }
 
 class HistoryNotifier extends Notifier<HistoryState> {
-  late final HistoryRepository _repository;
+  late HistoryRepository _repository;
+  late String _userId;
 
   @override
   HistoryState build() {
     _repository = ref.watch(historyRepositoryProvider);
+    _userId = ref.watch(currentUserIdProvider);
     Future.microtask(() => _init());
     return HistoryState();
   }
@@ -91,12 +96,13 @@ class HistoryNotifier extends Notifier<HistoryState> {
   Future<void> _init() async {
     try {
       if (AppConstants.seedDemoHistory) {
-        final count = await _repository.count();
+        final count = await _repository.count(userId: _userId);
         if (count == 0) {
           // Demo entries dengan variasi jenis sampah
           final now = DateTime.now();
           final demoEntries = [
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_1',
               wasteType: WasteType.cardboard,
               confidence: 0.942,
@@ -105,6 +111,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
               createdAt: now.subtract(const Duration(days: 1, hours: 2)),
             ),
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_2',
               wasteType: WasteType.biological,
               confidence: 0.923,
@@ -113,6 +120,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
               createdAt: now.subtract(const Duration(days: 2, hours: 5)),
             ),
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_3',
               wasteType: WasteType.plastic,
               confidence: 0.917,
@@ -121,6 +129,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
               createdAt: now.subtract(const Duration(days: 3, hours: 1)),
             ),
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_4',
               wasteType: WasteType.battery,
               confidence: 0.885,
@@ -145,6 +154,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
     try {
       // 1. Fetch filtered by category in SQL
       final rawEntries = await _repository.getAll(
+        userId: _userId,
         category: state.filterCategory,
       );
 
@@ -238,26 +248,49 @@ class HistoryNotifier extends Notifier<HistoryState> {
     }
   }
 
-  Future<void> saveScanToHistory(ClassificationResult result) async {
+  Future<ScanPointResult> saveScanToHistory(ClassificationResult result) async {
     try {
       // Idempotent key to avoid duplicate entries for the exact same scan result
       final scanKey =
           '${result.imagePath}_${result.timestamp.millisecondsSinceEpoch}';
 
-      final points = MlConfig.showScanPoints ? MlConfig.scanPointsReward : 0;
+      final ledger = PointsLedgerService(ref.read(sharedPreferencesProvider));
+      final alreadyScannedToday = await _repository.hasScannedWasteTypeOn(
+        userId: _userId,
+        wasteType: result.wasteType,
+        day: result.timestamp,
+      );
+      final pointsEarnedToday = await ledger.getDailyPoints(
+        _userId,
+        date: result.timestamp,
+      );
+
+      final pointResult = PointsPolicy.compute(
+        isUncertain: result.isUncertain,
+        alreadyScannedToday: alreadyScannedToday,
+        pointsEarnedToday: pointsEarnedToday,
+        enabled: MlConfig.showScanPoints,
+      );
 
       final entry = HistoryEntry(
         scanKey: scanKey,
+        userId: _userId,
         wasteType: result.wasteType,
         confidence: result.confidence,
         isUncertain: result.isUncertain,
-        pointsEarned: points,
+        pointsEarned: pointResult.points,
         imagePath: result.imagePath,
         createdAt: result.timestamp,
       );
 
       await _repository.add(entry);
+      await ledger.addDailyPoints(
+        _userId,
+        pointResult.points,
+        date: result.timestamp,
+      );
       await refresh(); // Refresh list if needed
+      return pointResult;
     } catch (e) {
       // Kegagalan menyimpan tidak boleh mengganggu layar Hasil
       developer.log('Riwayat gagal disimpan: $e');
@@ -277,10 +310,11 @@ final historyStatsProvider = FutureProvider.autoDispose<HistoryStats>((
 ) async {
   ref.watch(historyNotifierProvider);
   final repository = ref.watch(historyRepositoryProvider);
+  final userId = ref.watch(currentUserIdProvider);
 
-  final byCategory = await repository.countByCategory();
-  final byWasteType = await repository.countByWasteType();
-  final totalPoints = await repository.sumPointsEarned();
+  final byCategory = await repository.countByCategory(userId: userId);
+  final byWasteType = await repository.countByWasteType(userId: userId);
+  final totalPoints = await repository.sumPointsEarned(userId: userId);
 
   return HistoryStats(
     byCategory: byCategory,

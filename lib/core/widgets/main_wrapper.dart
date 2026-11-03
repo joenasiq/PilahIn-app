@@ -3,6 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/gamification/data/daily_login_reward_service.dart';
+import '../../features/gamification/presentation/user_progress_provider.dart';
+import '../../features/gamification/presentation/widgets/daily_reward_dialog.dart';
+
 class CurrentBottomNavIndex extends Notifier<int> {
   @override
   int build() => 0;
@@ -26,6 +31,35 @@ class MainWrapper extends ConsumerStatefulWidget {
 
 class _MainWrapperState extends ConsumerState<MainWrapper> {
   DateTime? _lastPressedAt;
+  bool _loginRewardChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkDailyReward());
+  }
+
+  Future<void> _checkDailyReward() async {
+    if (_loginRewardChecked) return;
+    _loginRewardChecked = true;
+
+    final user = ref.read(authControllerProvider).value;
+    if (user == null) return;
+
+    final prefs = ref.read(sharedPreferencesProvider);
+    final reward = await DailyLoginRewardService(prefs)
+        .claimIfEligible(user.id);
+
+    if (!mounted || !reward.claimed) return;
+
+    ref.invalidate(userProgressProvider);
+
+    // Tampilkan dialog saat badge streak login 7 hari terbuka.
+    // Hadiah poin harian biasa diklaim otomatis agar tidak mengganggu alur.
+    if (reward.badgeAwarded) {
+      await DailyRewardDialog.show(context, reward);
+    }
+  }
 
   void _onTabSelected(int index) {
     widget.navigationShell.goBranch(

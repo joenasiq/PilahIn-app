@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../gamification/domain/user_progress.dart';
+import '../../gamification/presentation/user_progress_provider.dart';
+import '../../gamification/presentation/widgets/points_info_sheet.dart';
 import '../../home/presentation/home_provider.dart';
 import '../../history/domain/history_stats.dart';
 import '../../history/presentation/history_provider.dart';
@@ -62,6 +65,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final user = authState.value;
     final homeState = ref.watch(homeSummaryProvider);
     final statsAsync = ref.watch(historyStatsProvider);
+    final progressAsync = ref.watch(userProgressProvider);
     final isGuest = user?.isGuest ?? true;
 
     return Scaffold(
@@ -89,7 +93,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           children: [
             _buildHeader(theme, user, homeState.value),
             if (AppConstants.gamificationEnabled && homeState.value != null)
-              _buildStatsRow(homeState.value!, statsAsync),
+              _buildStatsRow(homeState.value!, progressAsync),
             _buildDonutCard(theme, statsAsync),
             _buildMenu(isGuest),
             const SizedBox(height: 32),
@@ -155,13 +159,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  Widget _buildStatsRow(dynamic summary, AsyncValue<HistoryStats> statsAsync) {
-    // Poin bertambah setiap kali pemindaian berhasil (lihat MlConfig).
-    final scanPoints = statsAsync.maybeWhen(
-      data: (stats) => stats.totalPoints,
-      orElse: () => 0,
+  Widget _buildStatsRow(
+    dynamic summary,
+    AsyncValue<UserProgress> progressAsync,
+  ) {
+    // Total poin dinamis: dasar (demo/tamu) + scan + hadiah login.
+    final progress = progressAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => null,
     );
-    final totalPoints = (summary.points as int) + scanPoints;
+    final totalPoints = progress?.totalPoints ?? (summary.points as int);
+    final scanPoints = progress?.scanPoints ?? 0;
+    final loginPoints = progress?.loginPoints ?? 0;
+    final pointsToday = progress?.pointsToday ?? 0;
+    final dailyLimit = progress?.dailyLimit ?? 150;
 
     return Container(
       color: Colors.white,
@@ -187,13 +198,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
             ],
           ),
-          if (scanPoints > 0) ...[
-            const SizedBox(height: 12),
-            Text(
-              '+$scanPoints poin dari pemindaian',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-            ),
-          ],
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              Text(
+                'Scan $scanPoints • Login $loginPoints • Hari ini $pointsToday/$dailyLimit',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+              GestureDetector(
+                onTap: () => PointsInfoSheet.show(context),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.info_outline, size: 14, color: Colors.blue),
+                    SizedBox(width: 4),
+                    Text(
+                      'Cara Mendapatkan Poin',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -326,7 +360,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   Row(
                     children: [
                       Text(
-                        'Rincian Jenis Sampah',
+                        'Rincian Sub-kategori',
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -344,7 +378,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   const SizedBox(height: 12),
                   if (stats.sortedWasteTypes.isEmpty)
                     Text(
-                      'Rincian jenis sampah belum tersedia',
+                      'Rincian sub-kategori belum tersedia',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade500,
                       ),

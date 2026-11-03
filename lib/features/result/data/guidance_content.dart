@@ -8,10 +8,7 @@ class GuidanceStep {
   final String title;
   final String description;
 
-  const GuidanceStep({
-    required this.title,
-    required this.description,
-  });
+  const GuidanceStep({required this.title, required this.description});
 }
 
 /// Model panduan pengolahan per jenis sampah.
@@ -671,5 +668,68 @@ class GuidanceContent {
   /// Mengambil panduan berdasarkan [WasteType].
   static WasteGuidance getGuidance(WasteType type) {
     return byType[type] ?? cardboard;
+  }
+
+  static const List<String> _glassRecycleTips = [
+    'Pisahkan kaca berdasarkan warna (bening, hijau, cokelat) bila memungkinkan.',
+    'Kaca dapat dilebur ulang tanpa kehilangan kualitas untuk botol atau wadah baru.',
+    'Bungkus pecahan kaca dengan kertas tebal agar aman saat diangkut.',
+  ];
+
+  /// Tips daur ulang (recycle) spesifik per sub-kategori sampah.
+  static const Map<WasteType, List<String>> _recycleTips = {
+    WasteType.plastic: [
+      'Bersihkan dan keringkan botol/kemasan plastik sebelum disetor ke bank sampah.',
+      'Plastik PET (botol minum) bisa dicacah menjadi serpihan lalu dilebur menjadi filamen 3D print.',
+      'Plastik HDPE (botol sabun/shampo) dapat didaur ulang menjadi pot, ember, atau pipa.',
+    ],
+    WasteType.paper: [
+      'Pisahkan kertas bersih dari kertas berminyak atau basah.',
+      'Kertas dapat didaur ulang menjadi kertas daur ulang, kardus, atau bubur kertas untuk kerajinan.',
+      'Hindari mencampur kertas dengan plastik berlapis (mis. struk thermal).',
+    ],
+    WasteType.cardboard: [
+      'Lipat dan ratakan kardus agar mudah ditumpuk saat disetor.',
+      'Kardus dapat didaur ulang menjadi kardus baru, papan partikel, atau media tanam.',
+      'Jaga kardus tetap kering agar seratnya tidak rusak.',
+    ],
+    WasteType.metal: [
+      'Bersihkan kaleng dari sisa makanan/minuman agar tidak berbau.',
+      'Kaleng aluminium dapat dilebur ulang menjadi kaleng baru atau produk logam.',
+      'Pisahkan logam dari plastik/label sebelum disetor.',
+    ],
+    WasteType.brownGlass: _glassRecycleTips,
+    WasteType.greenGlass: _glassRecycleTips,
+    WasteType.whiteGlass: _glassRecycleTips,
+    WasteType.clothes: [
+      'Cuci dan keringkan pakaian sebelum disumbangkan atau didaur ulang.',
+      'Kain bekas dapat dijadikan kain lap, tas, atau bahan isian (upcycle).',
+      'Serat tekstil dapat diproses menjadi benang daur ulang atau isolasi.',
+    ],
+    WasteType.shoes: [
+      'Bersihkan sepatu bekas layak pakai untuk disumbangkan.',
+      'Sol karet dapat didaur ulang menjadi bahan peredam atau alas olahraga.',
+      'Pisahkan bagian kain, karet, dan logam bila ingin didaur ulang.',
+    ],
+    WasteType.battery: [
+      'Simpan baterai di wadah kering dan jauhkan dari air.',
+      'Serahkan ke drop point e-waste untuk diambil logam dan elektrolitnya.',
+      'Jangan membakar baterai karena dapat meledak dan mencemari udara.',
+    ],
+    WasteType.biological: [
+      'Pisahkan sampah organik dari anorganik agar mudah dikompos.',
+      'Sampah dapur dapat diolah menjadi kompos atau pupuk organik cair.',
+      'Gunakan wadah komposter tertutup untuk mengurangi bau dan lalat.',
+    ],
+    WasteType.trash: [
+      'Residu tidak dapat didaur ulang, jadi kurangi penggunaannya sejak awal.',
+      'Pastikan residu sudah dipisahkan dari sampah yang masih bisa didaur ulang.',
+      'Buang ke tempat sampah residu agar tidak mencemari aliran daur ulang.',
+    ],
+  };
+
+  /// Mengambil tips daur ulang untuk [type] (kosong bila belum tersedia).
+  static List<String> getRecycleTips(WasteType type) {
+    return _recycleTips[type] ?? const [];
   }
 }
