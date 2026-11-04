@@ -1,103 +1,84 @@
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/db/app_database.dart';
 import '../../../core/waste/waste_types.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
 import '../../scan/domain/waste_category.dart';
 
+/// Repository riwayat berbasis SQLite.
+///
+/// Koneksi diambil dari [AppDatabase] (satu-satunya titik akses DB),
+/// jadi skema tabel `scan_history` dikelola terpusat di sana.
 class SqfliteHistoryRepository implements HistoryRepository {
-  Database? _db;
+  final AppDatabase _appDb;
 
-  Future<Database> get database async {
-    if (_db != null) return _db!;
-    _db = await _initDB();
-    return _db!;
+  SqfliteHistoryRepository([AppDatabase? appDb]) : _appDb = appDb ?? AppDatabase();
+
+  Future<Database> get database => _appDb.database;
+
+  /// Cache label_key -> id untuk kolom waste_type_id.
+  Map<String, int>? _wasteTypeIds;
+
+  Future<Map<String, int>> _wasteTypeLookup() async {
+    final cached = _wasteTypeIds;
+    if (cached != null) return cached;
+
+    final db = await database;
+    final rows = await db.query('waste_types', columns: ['id', 'label_key']);
+    final map = {
+      for (final row in rows) (row['label_key'] as String): row['id'] as int,
+    };
+    _wasteTypeIds = map;
+    return map;
   }
 
-  Future<Database> _initDB() async {
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = '${documentsDirectory.path}/pilahin.db';
-
-    return await openDatabase(
-      path,
-      version: 3,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE scan_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            scan_key TEXT UNIQUE NOT NULL,
-            user_id TEXT NOT NULL DEFAULT '${AppConstants.demoUserId}',
-            category TEXT NOT NULL,
-            waste_type TEXT,
-            confidence REAL NOT NULL,
-            is_uncertain INTEGER NOT NULL,
-            item_name TEXT,
-            points_earned INTEGER NOT NULL,
-            image_path TEXT,
-            created_at INTEGER NOT NULL
-          )
-        ''');
-        await db.execute(
-          'CREATE INDEX idx_created_at ON scan_history(created_at)',
-        );
-        await db.execute(
-          'CREATE INDEX idx_user_created ON scan_history(user_id, created_at)',
-        );
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE scan_history ADD COLUMN waste_type TEXT',
-          );
-        }
-        if (oldVersion < 3) {
-          await db.execute(
-            "ALTER TABLE scan_history ADD COLUMN user_id TEXT NOT NULL "
-            "DEFAULT '${AppConstants.demoUserId}'",
-          );
-          await db.execute(
-            'CREATE INDEX idx_user_created ON scan_history(user_id, created_at)',
-          );
-        }
-      },
-    );
+  /// Isi kolom `waste_type_id` (FK) dari `wasteType` entry bila tersedia.
+  Future<Map<String, dynamic>> _withWasteTypeId(HistoryEntry entry) async {
+    final map = entry.toMap();
+    final type = entry.wasteType;
+    if (type != null) {
+      final lookup = await _wasteTypeLookup();
+      map['waste_type_id'] = lookup[type.labelKey];
+    }
+    return map;
   }
 
   @override
   Future<void> add(HistoryEntry entry) async {
     final db = await database;
+    final map = await _withWasteTypeId(entry);
     await db.insert(
       'scan_history',
-      entry.toMap(),
-      conflictAlgorithm:
-          ConflictAlgorithm.ignore, // Idempotent based on scanKey
+      map,
+      conflictAlgorithm: ConflictAlgorithm.ignore, // Idempotent based on scanKey
     );
   }
 
   @override
   Future<List<HistoryEntry>> getAll({
-    required String userId,
+    String? userId,
     WasteCategory? category,
   }) async {
     final db = await database;
-    final where = StringBuffer('user_id = ?');
-    final whereArgs = <Object?>[userId];
 
+    final conditions = <String>[];
+    final whereArgs = <Object?>[];
+
+    if (userId != null) {
+      conditions.add('user_id = ?');
+      whereArgs.add(userId);
+    }
     if (category != null) {
-      where.write(' AND category = ?');
-      whereArgs.add(
-        category == WasteCategory.organik ? 'organik' : 'anorganik',
-      );
+      conditions.add('category = ?');
+      whereArgs.add(category == WasteCategory.organik ? 'organik' : 'anorganik');
     }
 
     final List<Map<String, dynamic>> maps = await db.query(
       'scan_history',
-      where: where.toString(),
-      whereArgs: whereArgs,
+      where: conditions.isEmpty ? null : conditions.join(' AND '),
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
       orderBy: 'created_at DESC',
     );
 
@@ -106,20 +87,25 @@ class SqfliteHistoryRepository implements HistoryRepository {
 
   @override
   Future<List<HistoryEntry>> getBetween({
-    required String userId,
+    String? userId,
     required DateTime start,
     required DateTime end,
   }) async {
     final db = await database;
-    final maps = await db.query(
+    final where = StringBuffer('created_at >= ? AND created_at < ?');
+    final whereArgs = <Object?>[
+      start.millisecondsSinceEpoch,
+      end.millisecondsSinceEpoch,
+    ];
+    if (userId != null) {
+      where.write(' AND user_id = ?');
+      whereArgs.add(userId);
+    }
+    final List<Map<String, dynamic>> maps = await db.query(
       'scan_history',
-      where: 'user_id = ? AND created_at >= ? AND created_at < ?',
-      whereArgs: [
-        userId,
-        start.millisecondsSinceEpoch,
-        end.millisecondsSinceEpoch,
-      ],
-      orderBy: 'created_at DESC',
+      where: where.toString(),
+      whereArgs: whereArgs,
+      orderBy: 'created_at ASC',
     );
     return maps.map((e) => HistoryEntry.fromMap(e)).toList();
   }
@@ -127,40 +113,56 @@ class SqfliteHistoryRepository implements HistoryRepository {
   @override
   Future<void> delete(int id) async {
     final db = await database;
-    await db.delete('scan_history', where: 'id = ?', whereArgs: [id]);
+    await db.delete(
+      'scan_history',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   @override
   Future<void> restore(HistoryEntry entry) async {
     final db = await database;
+    final map = await _withWasteTypeId(entry);
     await db.insert(
       'scan_history',
-      entry.toMap(),
+      map,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   @override
-  Future<int> count({required String userId}) async {
+  Future<int> count({String? userId}) async {
     final db = await database;
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) FROM scan_history WHERE user_id = ?',
-      [userId],
-    );
+    final List<Map<String, dynamic>> result;
+    if (userId != null) {
+      result = await db.rawQuery(
+        'SELECT COUNT(*) FROM scan_history WHERE user_id = ?',
+        [userId],
+      );
+    } else {
+      result = await db.rawQuery('SELECT COUNT(*) FROM scan_history');
+    }
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   @override
-  Future<Map<WasteCategory, int>> countByCategory({
-    required String userId,
-  }) async {
+  Future<Map<WasteCategory, int>> countByCategory({String? userId}) async {
     final db = await database;
-    // Hanya hasil yang valid (bukan "tidak yakin") yang masuk statistik.
-    final results = await db.rawQuery(
-      'SELECT category, COUNT(*) as count FROM scan_history '
-      'WHERE user_id = ? AND is_uncertain = 0 GROUP BY category',
-      [userId],
-    );
+
+    final String sql;
+    final List<Object?> args;
+    if (userId != null) {
+      sql = 'SELECT category, COUNT(*) as count FROM scan_history '
+          'WHERE user_id = ? AND is_uncertain = 0 GROUP BY category';
+      args = [userId];
+    } else {
+      sql = 'SELECT category, COUNT(*) as count FROM scan_history '
+          'WHERE is_uncertain = 0 GROUP BY category';
+      args = const [];
+    }
+
+    final results = await db.rawQuery(sql, args);
 
     int organik = 0;
     int anorganik = 0;
@@ -173,18 +175,29 @@ class SqfliteHistoryRepository implements HistoryRepository {
       }
     }
 
-    return {WasteCategory.organik: organik, WasteCategory.anorganik: anorganik};
+    return {
+      WasteCategory.organik: organik,
+      WasteCategory.anorganik: anorganik,
+    };
   }
 
   @override
-  Future<Map<WasteType, int>> countByWasteType({required String userId}) async {
+  Future<Map<WasteType, int>> countByWasteType({String? userId}) async {
     final db = await database;
-    final results = await db.rawQuery(
-      'SELECT waste_type, COUNT(*) as count FROM scan_history '
-      'WHERE user_id = ? AND is_uncertain = 0 AND waste_type IS NOT NULL '
-      'GROUP BY waste_type',
-      [userId],
-    );
+    final String sql;
+    final List<Object?> args;
+    if (userId != null) {
+      sql = 'SELECT waste_type, COUNT(*) as count FROM scan_history '
+          'WHERE user_id = ? AND is_uncertain = 0 AND waste_type IS NOT NULL '
+          'GROUP BY waste_type';
+      args = [userId];
+    } else {
+      sql = 'SELECT waste_type, COUNT(*) as count FROM scan_history '
+          'WHERE is_uncertain = 0 AND waste_type IS NOT NULL '
+          'GROUP BY waste_type';
+      args = const [];
+    }
+    final results = await db.rawQuery(sql, args);
 
     final counts = <WasteType, int>{};
     for (final row in results) {
@@ -197,35 +210,54 @@ class SqfliteHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<int> sumPointsEarned({required String userId}) async {
+  Future<int> sumPointsEarned({String? userId}) async {
     final db = await database;
-    final result = await db.rawQuery(
-      'SELECT SUM(points_earned) as total FROM scan_history WHERE user_id = ?',
-      [userId],
-    );
+    final List<Map<String, dynamic>> result;
+    if (userId != null) {
+      result = await db.rawQuery(
+        'SELECT SUM(points_earned) as total FROM scan_history WHERE user_id = ?',
+        [userId],
+      );
+    } else {
+      result = await db.rawQuery(
+        'SELECT SUM(points_earned) as total FROM scan_history',
+      );
+    }
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
   @override
   Future<bool> hasScannedWasteTypeOn({
-    required String userId,
+    String? userId,
     required WasteType wasteType,
     required DateTime day,
   }) async {
     final db = await database;
     final start = DateTime(day.year, day.month, day.day);
     final end = start.add(const Duration(days: 1));
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) FROM scan_history '
-      'WHERE user_id = ? AND waste_type = ? AND is_uncertain = 0 '
-      'AND created_at >= ? AND created_at < ?',
-      [
+    final String sql;
+    final List<Object?> args;
+    if (userId != null) {
+      sql = 'SELECT COUNT(*) FROM scan_history '
+          'WHERE user_id = ? AND waste_type = ? AND is_uncertain = 0 '
+          'AND created_at >= ? AND created_at < ?';
+      args = [
         userId,
         wasteType.labelKey,
         start.millisecondsSinceEpoch,
         end.millisecondsSinceEpoch,
-      ],
-    );
+      ];
+    } else {
+      sql = 'SELECT COUNT(*) FROM scan_history '
+          'WHERE waste_type = ? AND is_uncertain = 0 '
+          'AND created_at >= ? AND created_at < ?';
+      args = [
+        wasteType.labelKey,
+        start.millisecondsSinceEpoch,
+        end.millisecondsSinceEpoch,
+      ];
+    }
+    final result = await db.rawQuery(sql, args);
     return (Sqflite.firstIntValue(result) ?? 0) > 0;
   }
 }

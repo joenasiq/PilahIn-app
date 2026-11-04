@@ -4,6 +4,7 @@ import '../../scan/domain/waste_category.dart';
 
 class HistoryEntry {
   final int? id;
+  final String userId;
   final String scanKey;
   final String userId;
   final WasteCategory? _storedCategory;
@@ -24,6 +25,7 @@ class HistoryEntry {
 
   HistoryEntry({
     this.id,
+    this.userId = 'guest_id',
     required this.scanKey,
     this.userId = AppConstants.demoUserId,
     WasteCategory? category,
@@ -38,6 +40,7 @@ class HistoryEntry {
 
   HistoryEntry copyWith({
     int? id,
+    String? userId,
     String? scanKey,
     String? userId,
     WasteCategory? category,
@@ -51,6 +54,7 @@ class HistoryEntry {
   }) {
     return HistoryEntry(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       scanKey: scanKey ?? this.scanKey,
       userId: userId ?? this.userId,
       category: category ?? _storedCategory,
@@ -67,6 +71,7 @@ class HistoryEntry {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'scan_key': scanKey,
       'user_id': userId,
       'category': category == WasteCategory.organik ? 'organik' : 'anorganik',
@@ -92,6 +97,7 @@ class HistoryEntry {
 
     return HistoryEntry(
       id: map['id'] as int?,
+      userId: map['user_id'] as String? ?? 'guest_id',
       scanKey: map['scan_key'] as String,
       userId: (map['user_id'] as String?) ?? AppConstants.demoUserId,
       category: storedCategory,

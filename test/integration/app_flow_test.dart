@@ -13,8 +13,11 @@ import 'package:pilahin_app/features/gamification/presentation/gamification_prov
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
 import 'package:pilahin_app/features/scan/data/scan_camera_service.dart';
 import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
+import 'package:pilahin_app/features/home/data/mock_home_repository.dart';
+import 'package:pilahin_app/features/home/presentation/home_provider.dart';
 
 import '../features/history/helpers/fake_history_repository.dart';
+import '../features/auth/helpers/fake_auth_repository.dart';
 
 // Fake ScanService
 class FakeScanService implements ScanCameraService {
@@ -57,6 +60,7 @@ void main() {
   Future<void> pumpApp(WidgetTester tester) async {
     final fakeHistoryRepo = FakeHistoryRepository();
     final fakeGamificationRepo = MockGamificationRepository();
+    final fakeAuthRepo = FakeAuthRepository(prefs);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -64,9 +68,10 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(prefs),
           scanCameraServiceProvider.overrideWithValue(FakeScanService()),
           historyRepositoryProvider.overrideWithValue(fakeHistoryRepo),
-          gamificationRepositoryProvider.overrideWithValue(
-            fakeGamificationRepo,
-          ),
+          gamificationRepositoryProvider.overrideWithValue(fakeGamificationRepo),
+          homeRepositoryProvider.overrideWithValue(MockHomeRepository(fakeGamificationRepo)),
+          progressionServiceProvider.overrideWithValue(null),
+          authRepositoryProvider.overrideWithValue(fakeAuthRepo),
         ],
         child: const App(),
       ),

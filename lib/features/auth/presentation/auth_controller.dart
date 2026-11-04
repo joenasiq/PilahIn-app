@@ -1,20 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../data/local_auth_repository.dart';
+import '../../../core/guest/guest_progress_store.dart';
+import '../../../core/providers/shared_preferences_provider.dart';
+import '../data/firebase_auth_repository.dart';
 import '../domain/app_user.dart';
 import '../domain/auth_repository.dart';
 
-// Provider untuk SharedPreferences
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('sharedPreferencesProvider must be overridden');
-});
+// SharedPreferences didefinisikan di core (hindari import melingkar);
+// di-re-export agar import lama (mis. test & main) tetap berfungsi.
+export '../../../core/providers/shared_preferences_provider.dart'
+    show sharedPreferencesProvider;
 
-// Provider untuk AuthRepository
+// Provider untuk AuthRepository (berbasis Firebase Auth + Firestore).
+// GuestProgressStore disuntik agar login bisa auto-merge progres tamu
+// ke akun cloud (Fase 3).
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return LocalAuthRepository(prefs);
+  final guestStore = ref.watch(guestProgressStoreProvider);
+  return FirebaseAuthRepository(prefs, guestStore);
 });
 
 // AuthController menggunakan AsyncNotifier

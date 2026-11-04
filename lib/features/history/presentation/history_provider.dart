@@ -3,21 +3,24 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../domain/history_entry.dart';
-import '../domain/history_repository.dart';
-import '../domain/history_stats.dart';
-import '../data/sqflite_history_repository.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ml_config.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/providers/shared_preferences_provider.dart';
+import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../gamification/data/points_ledger_service.dart';
 import '../../gamification/domain/points_policy.dart';
+import '../../gamification/presentation/gamification_provider.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
-import '../../../core/constants/ml_config.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../../core/waste/waste_types.dart';
+import '../data/sqflite_history_repository.dart';
+import '../domain/history_entry.dart';
+import '../domain/history_repository.dart';
+import '../domain/history_stats.dart';
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return SqfliteHistoryRepository();
+  return SqfliteHistoryRepository(ref.watch(appDatabaseProvider));
 });
 
 class HistoryState {
@@ -289,6 +292,16 @@ class HistoryNotifier extends Notifier<HistoryState> {
         pointResult.points,
         date: result.timestamp,
       );
+
+      final progression = ref.read(progressionServiceProvider);
+      if (progression != null) {
+        try {
+          await progression.recomputeAll();
+        } catch (e) {
+          developer.log('Recompute gamifikasi gagal: $e');
+        }
+      }
+
       await refresh(); // Refresh list if needed
       return pointResult;
     } catch (e) {

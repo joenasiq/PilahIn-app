@@ -5,33 +5,30 @@ import 'package:pilahin_app/features/scan/domain/waste_category.dart';
 
 class FakeHistoryRepository implements HistoryRepository {
   final List<HistoryEntry> _entries = [];
-  int _nextId = 1;
+
+  List<HistoryEntry> get entries => List.unmodifiable(_entries);
 
   @override
   Future<void> add(HistoryEntry entry) async {
-    // Idempotent
-    if (_entries.any((e) => e.scanKey == entry.scanKey)) {
-      return;
-    }
-    final newEntry = entry.copyWith(id: _nextId++);
-    _entries.add(newEntry);
+    _entries.add(entry);
   }
 
   @override
-  Future<int> count({required String userId}) async {
+  Future<int> count({String? userId}) async {
+    if (userId == null) return _entries.length;
     return _entries.where((e) => e.userId == userId).length;
   }
 
   @override
   Future<List<HistoryEntry>> getBetween({
-    required String userId,
+    String? userId,
     required DateTime start,
     required DateTime end,
   }) async {
     final list = _entries
         .where(
           (e) =>
-              e.userId == userId &&
+              (userId == null || e.userId == userId) &&
               !e.createdAt.isBefore(start) &&
               e.createdAt.isBefore(end),
         )
@@ -47,28 +44,28 @@ class FakeHistoryRepository implements HistoryRepository {
 
   @override
   Future<List<HistoryEntry>> getAll({
-    required String userId,
+    String? userId,
     WasteCategory? category,
   }) async {
-    var list = _entries.where((e) => e.userId == userId).toList();
+    var list = userId == null
+        ? _entries
+        : _entries.where((e) => e.userId == userId).toList();
     if (category != null) {
       list = list.where((e) => e.category == category).toList();
     }
-    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return list;
+    return List.from(list);
   }
 
   @override
   Future<void> restore(HistoryEntry entry) async {
-    _entries.removeWhere((e) => e.id == entry.id);
     _entries.add(entry);
   }
 
   @override
   Future<Map<WasteCategory, int>> countByCategory({
-    required String userId,
+    String? userId,
   }) async {
-    final valid = _entries.where((e) => e.userId == userId && !e.isUncertain);
+    final valid = _entries.where((e) => (userId == null || e.userId == userId) && !e.isUncertain);
     int organik = valid
         .where((e) => e.category == WasteCategory.organik)
         .length;
@@ -79,10 +76,10 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<Map<WasteType, int>> countByWasteType({required String userId}) async {
+  Future<Map<WasteType, int>> countByWasteType({String? userId}) async {
     final counts = <WasteType, int>{};
     for (final entry in _entries) {
-      if (entry.userId != userId || entry.isUncertain) continue;
+      if ((userId != null && entry.userId != userId) || entry.isUncertain) continue;
       final wasteType = entry.wasteType;
       if (wasteType != null) {
         counts[wasteType] = (counts[wasteType] ?? 0) + 1;
@@ -92,21 +89,21 @@ class FakeHistoryRepository implements HistoryRepository {
   }
 
   @override
-  Future<int> sumPointsEarned({required String userId}) async {
+  Future<int> sumPointsEarned({String? userId}) async {
     return _entries
-        .where((e) => e.userId == userId)
+        .where((e) => userId == null || e.userId == userId)
         .fold<int>(0, (sum, entry) => sum + entry.pointsEarned);
   }
 
   @override
   Future<bool> hasScannedWasteTypeOn({
-    required String userId,
+    String? userId,
     required WasteType wasteType,
     required DateTime day,
   }) async {
     return _entries.any(
       (e) =>
-          e.userId == userId &&
+          (userId == null || e.userId == userId) &&
           !e.isUncertain &&
           e.wasteType == wasteType &&
           e.createdAt.year == day.year &&
