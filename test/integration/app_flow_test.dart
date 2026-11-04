@@ -13,6 +13,8 @@ import 'package:pilahin_app/features/gamification/presentation/gamification_prov
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
 import 'package:pilahin_app/features/scan/data/scan_camera_service.dart';
 import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
+import 'package:pilahin_app/features/home/data/mock_home_repository.dart';
+import 'package:pilahin_app/features/home/presentation/home_provider.dart';
 
 import '../features/history/helpers/fake_history_repository.dart';
 import '../features/auth/helpers/fake_auth_repository.dart';
@@ -67,6 +69,12 @@ void main() {
           scanCameraServiceProvider.overrideWithValue(FakeScanService()),
           historyRepositoryProvider.overrideWithValue(fakeHistoryRepo),
           gamificationRepositoryProvider.overrideWithValue(fakeGamificationRepo),
+          // Test tidak punya Firebase: repository beranda & progression
+          // service (khusus akun cloud) dioverride agar tidak menyentuh
+          // FirebaseFirestore.instance.
+          homeRepositoryProvider
+              .overrideWithValue(MockHomeRepository(fakeGamificationRepo)),
+          progressionServiceProvider.overrideWithValue(null),
           // Jangan buka SQLite sungguhan di widget test.
           authRepositoryProvider.overrideWithValue(fakeAuthRepo),
         ],

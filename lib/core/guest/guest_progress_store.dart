@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/history/domain/history_entry.dart';
+import '../providers/shared_preferences_provider.dart';
 
 /// Penyimpanan sementara progres pengguna tamu (lokal saja).
 ///
@@ -50,3 +52,9 @@ class GuestProgressStore {
     await _prefs.remove(_scansKey);
   }
 }
+
+/// Provider terpusat store progres tamu (dipakai routing repository,
+/// auto-merge saat login, dan home/gamification tamu).
+final guestProgressStoreProvider = Provider<GuestProgressStore>((ref) {
+  return GuestProgressStore(ref.watch(sharedPreferencesProvider));
+});

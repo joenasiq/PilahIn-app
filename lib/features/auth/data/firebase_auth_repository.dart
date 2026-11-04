@@ -1,8 +1,12 @@
+import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/firebase/scan_doc_id.dart';
+import '../../../core/guest/guest_progress_store.dart';
+import '../../gamification/data/progression_service.dart';
 import '../domain/app_user.dart';
 import '../domain/auth_repository.dart';
 
@@ -17,9 +21,10 @@ import '../domain/auth_repository.dart';
 /// - email tidak terdaftar              -> 'Email dan kata sandi salah'
 /// - email terdaftar, password salah    -> 'Kata sandi salah'
 class FirebaseAuthRepository implements AuthRepository {
-  FirebaseAuthRepository(this._prefs);
+  FirebaseAuthRepository(this._prefs, this._guestStore);
 
   final SharedPreferences _prefs;
+  final GuestProgressStore _guestStore;
 
   FirebaseAuth get _auth => FirebaseAuth.instance;
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
@@ -41,6 +46,14 @@ class FirebaseAuthRepository implements AuthRepository {
     }
 
     final profile = await _ensureUserDocument(firebaseUser);
+
+    // Auto-merge progres tamu ke akun (jika ada). Gagal merge tidak
+    // membatalkan login: data tamu tetap di lokal, dicoba lagi login depan.
+    try {
+      await _mergeGuestProgress(firebaseUser.uid);
+    } catch (e) {
+      developer.log('Auto-merge progres tamu gagal: $e');
+    }
 
     await _prefs.setBool(AppConstants.keyUserSession, true);
     await _prefs.setBool(AppConstants.keyIsGuest, false);
@@ -116,6 +129,35 @@ class FirebaseAuthRepository implements AuthRepository {
     };
     await ref.set(data, SetOptions(merge: true));
     return data;
+  }
+
+  /// Migrasi progres tamu ke akun (auto-merge):
+  /// 1. Tulis semua scan tamu ke `users/{uid}/scans` (batch; doc ID =
+  ///    `sanitizeScanDocId(scanKey)`, merge agar aman diulang).
+  /// 2. Recompute gamifikasi (poin/streak/badge/misi) — scan tamu ikut.
+  /// 3. Kosongkan [GuestProgressStore].
+  Future<void> _mergeGuestProgress(String uid) async {
+    final guestScans = _guestStore.loadScans();
+    if (guestScans.isEmpty) return;
+
+    final scansRef =
+        _firestore.collection('users').doc(uid).collection('scans');
+    final batch = _firestore.batch();
+    for (final scan in guestScans) {
+      final data = scan.toMap()..remove('id');
+      data['user_id'] = uid;
+      data['scan_key'] = scan.scanKey;
+      batch.set(
+        scansRef.doc(sanitizeScanDocId(scan.scanKey)),
+        data,
+        SetOptions(merge: true),
+      );
+    }
+    await batch.commit();
+
+    await ProgressionService(_firestore, uid: uid).recomputeAll();
+
+    await _guestStore.clear();
   }
 
   String _defaultDisplayName(User user) {

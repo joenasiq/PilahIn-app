@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../core/firebase/scan_doc_id.dart';
 import '../../scan/domain/waste_category.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
@@ -7,7 +8,7 @@ import '../domain/history_repository.dart';
 /// Repository riwayat pengguna akun, berbasis Cloud Firestore.
 ///
 /// Lokasi data: `users/{uid}/scans/{docId}`
-/// - Doc ID = `scanKey` tersanitasi (lihat [_docIdFor]) -> idempotency
+/// - Doc ID = `scanKey` tersanitasi ([sanitizeScanDocId]) -> idempotency
 ///   scan yang sama otomatis (set merge).
 /// - Gambar TIDAK diunggah; field `image_path` hanya menyimpan path file
 ///   lokal di perangkat (sesuai keputusan tim: gambar lokal saja).
@@ -25,16 +26,11 @@ class FirebaseHistoryRepository implements HistoryRepository {
 
   final Map<int, String> _docIdsByIntId = {};
 
-  /// Doc ID Firestore tidak boleh mengandung '/', '\', atau null char.
-  /// [scanKey] berisi path gambar (mis. `/data/user/0/.../img.jpg_123`)
-  /// sehingga harus disanitasi. Deterministik: scan yang sama selalu
-  /// menghasilkan doc ID yang sama (idempotency tetap terjaga).
-  String _docIdFor(String scanKey) =>
-      scanKey.replaceAll('/', '_').replaceAll('\\', '_');
-
   @override
   Future<void> add(HistoryEntry entry) async {
-    final doc = _scans.doc(_docIdFor(entry.scanKey));
+    // Doc ID Firestore tidak boleh mengandung '/'; scanKey berisi path
+    // gambar, jadi disanitasi (deterministik -> idempotency terjaga).
+    final doc = _scans.doc(sanitizeScanDocId(entry.scanKey));
     await doc.set(_toData(entry), SetOptions(merge: true));
   }
 
@@ -73,7 +69,7 @@ class FirebaseHistoryRepository implements HistoryRepository {
   @override
   Future<void> restore(HistoryEntry entry) async {
     // Pulihkan berdasarkan scanKey (doc ID = scanKey tersanitasi).
-    final doc = _scans.doc(_docIdFor(entry.scanKey));
+    final doc = _scans.doc(sanitizeScanDocId(entry.scanKey));
     await doc.set(_toData(entry), SetOptions(merge: true));
   }
 

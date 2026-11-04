@@ -14,11 +14,11 @@ import '../data/firebase_history_repository.dart';
 import '../data/guest_history_repository.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
+import '../../gamification/presentation/gamification_provider.dart';
 
-/// Penyimpanan progres tamu (lokal, JSON di SharedPreferences).
-final guestProgressStoreProvider = Provider<GuestProgressStore>((ref) {
-  return GuestProgressStore(ref.watch(sharedPreferencesProvider));
-});
+// NOTE: `guestProgressStoreProvider` kini didefinisi di
+// core/guest/guest_progress_store.dart (import di atas) agar bisa dipakai
+// banyak fitur tanpa import melingkar.
 
 /// Repository riwayat terpilih berdasarkan sesi aktif:
 /// - tamu / belum login -> [GuestHistoryRepository] (lokal)
@@ -271,6 +271,20 @@ class HistoryNotifier extends Notifier<HistoryState> {
       );
       
       await _repository.add(entry);
+
+      // Akun: hitung ulang gamifikasi cloud (poin/streak/badge/misi)
+      // setelah scan tersimpan. Gagal recompute tidak boleh menggagalkan
+      // penyimpanan scan (data scan tetap valid; recompute berikutnya
+      // akan memperbaiki state karena berbasis recompute dari nol).
+      final progression = ref.read(progressionServiceProvider);
+      if (progression != null) {
+        try {
+          await progression.recomputeAll();
+        } catch (e) {
+          developer.log('Recompute gamifikasi gagal: $e');
+        }
+      }
+
       await refresh(); // Refresh list if needed
     } catch (e) {
       // Kegagalan menyimpan tidak boleh mengganggu layar Hasil

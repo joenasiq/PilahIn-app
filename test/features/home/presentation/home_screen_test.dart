@@ -10,8 +10,11 @@ import 'package:pilahin_app/features/scan/data/gallery_picker_service.dart';
 import 'package:pilahin_app/features/scan/presentation/scan_controller.dart';
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
 import '../../history/helpers/fake_history_repository.dart';
+import '../../auth/helpers/fake_auth_repository.dart';
 import 'package:pilahin_app/features/gamification/presentation/gamification_provider.dart';
 import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
+import 'package:pilahin_app/features/home/data/mock_home_repository.dart';
+import 'package:pilahin_app/features/home/presentation/home_provider.dart';
 
 class _MockCameraService implements ScanCameraService {
   @override Future<void> initialize() async {}
@@ -43,6 +46,11 @@ void main() {
           galleryPickerServiceProvider.overrideWithValue(_MockGalleryService()),
           historyRepositoryProvider.overrideWithValue(FakeHistoryRepository()),
           gamificationRepositoryProvider.overrideWithValue(MockGamificationRepository()),
+          // Test tidak punya Firebase: override auth + repository beranda
+          // agar tidak menyentuh FirebaseAuth/Firestore instance.
+          authRepositoryProvider.overrideWithValue(FakeAuthRepository(prefs)),
+          homeRepositoryProvider
+              .overrideWithValue(MockHomeRepository(MockGamificationRepository())),
         ],
         child: const App(),
       ),
