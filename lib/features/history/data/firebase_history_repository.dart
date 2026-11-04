@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/firebase/scan_doc_id.dart';
+import '../../../core/waste/waste_types.dart';
 import '../../scan/domain/waste_category.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
@@ -95,6 +96,64 @@ class FirebaseHistoryRepository implements HistoryRepository {
       WasteCategory.organik: organik,
       WasteCategory.anorganik: anorganik,
     };
+  }
+
+  @override
+  Future<List<HistoryEntry>> getBetween({
+    String? userId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    // [start] inklusif, [end] eksklusif; diurutkan terlama dulu (konsisten
+    // dengan versi SQLite: created_at ASC).
+    final all = await getAll();
+    return all
+        .where((e) =>
+            !e.createdAt.isBefore(start) && e.createdAt.isBefore(end))
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  @override
+  Future<Map<WasteType, int>> countByWasteType({String? userId}) async {
+    final all = await getAll();
+    final counts = <WasteType, int>{};
+    for (final e in all) {
+      // Hanya hasil valid (is_uncertain=0) & jenis dikenal — konsisten
+      // dengan versi SQLite.
+      if (e.isUncertain) continue;
+      final type = e.wasteType;
+      if (type == null) continue;
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  @override
+  Future<int> sumPointsEarned({String? userId}) async {
+    final all = await getAll();
+    var total = 0;
+    for (final e in all) {
+      total += e.pointsEarned;
+    }
+    return total;
+  }
+
+  @override
+  Future<bool> hasScannedWasteTypeOn({
+    String? userId,
+    required WasteType wasteType,
+    required DateTime day,
+  }) async {
+    final all = await getAll();
+    // Jendela satu hari lokal (konsisten dengan versi SQLite).
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return all.any((e) =>
+        !e.isUncertain &&
+        e.wasteType == wasteType &&
+        !e.createdAt.isBefore(start) &&
+        e.createdAt.isBefore(end));
   }
 
   Map<String, dynamic> _toData(HistoryEntry entry) {

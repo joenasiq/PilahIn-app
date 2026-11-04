@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pilahin_app/core/constants/app_constants.dart';
 import 'package:pilahin_app/features/auth/domain/app_user.dart';
 import 'package:pilahin_app/features/auth/domain/auth_repository.dart';
+import 'package:pilahin_app/features/auth/domain/auth_validators.dart';
 
 /// Fake auth repository untuk widget/integration test.
 ///
@@ -40,6 +41,41 @@ class FakeAuthRepository implements AuthRepository {
       id: 'user_1',
       email: AppConstants.demoEmail,
       displayName: AppConstants.demoDisplayName,
+      isGuest: false,
+    );
+  }
+
+  @override
+  Future<AppUser> register({
+    required String displayName,
+    required String email,
+    required String password,
+  }) async {
+    // Semantik validasi disamakan dengan LocalAuthRepository agar
+    // widget test registrasi tetap hermetic dan konsisten.
+    final name = displayName.trim();
+    final cleanEmail = email.trim().toLowerCase();
+    final demoEmail = AppConstants.demoEmail.trim().toLowerCase();
+
+    if (name.isEmpty) throw Exception('Nama wajib diisi');
+    if (!isValidEmail(cleanEmail)) throw Exception('Format email tidak valid');
+    if (password.length < AppConstants.minPasswordLength) {
+      throw Exception(
+        'Kata sandi minimal ${AppConstants.minPasswordLength} karakter',
+      );
+    }
+    if (cleanEmail == demoEmail) throw Exception('Email sudah terdaftar');
+
+    await _prefs.setBool(AppConstants.keyUserSession, true);
+    await _prefs.setBool(AppConstants.keyIsGuest, false);
+    await _prefs.setString(AppConstants.keyUserId, 'user_1');
+    await _prefs.setString(AppConstants.keyUserEmail, cleanEmail);
+    await _prefs.setString(AppConstants.keyUserName, name);
+
+    return AppUser(
+      id: 'user_1',
+      email: cleanEmail,
+      displayName: name,
       isGuest: false,
     );
   }

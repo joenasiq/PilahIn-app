@@ -1,6 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/waste/waste_types.dart';
 import '../domain/history_entry.dart';

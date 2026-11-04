@@ -1,12 +1,12 @@
 import 'dart:developer' as developer;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ml_config.dart';
-import '../../../core/db/app_database.dart';
-import '../../../core/providers/shared_preferences_provider.dart';
+import '../../../core/guest/guest_progress_store.dart';
 import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../gamification/data/points_ledger_service.dart';
@@ -14,13 +14,23 @@ import '../../gamification/domain/points_policy.dart';
 import '../../gamification/presentation/gamification_provider.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
-import '../data/sqflite_history_repository.dart';
+import '../data/firebase_history_repository.dart';
+import '../data/guest_history_repository.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
 import '../domain/history_stats.dart';
 
+/// Repository riwayat sesuai sesi aktif (routing Fase 2):
+/// - tamu / belum login  -> [GuestHistoryRepository] (GuestProgressStore lokal)
+/// - akun login          -> [FirebaseHistoryRepository] (Firestore users/{uid}/scans)
+///
+/// `sharedPreferencesProvider` diambil dari re-export [auth_controller].
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return SqfliteHistoryRepository(ref.watch(appDatabaseProvider));
+  final user = ref.watch(authControllerProvider).value;
+  if (user == null || user.isGuest) {
+    return GuestHistoryRepository(ref.watch(guestProgressStoreProvider));
+  }
+  return FirebaseHistoryRepository(FirebaseFirestore.instance, uid: user.id);
 });
 
 class HistoryState {
