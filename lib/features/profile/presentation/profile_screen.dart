@@ -5,17 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../gamification/domain/user_progress.dart';
+import '../../gamification/presentation/user_progress_provider.dart';
+import '../../gamification/presentation/widgets/points_info_sheet.dart';
 import '../../home/presentation/home_provider.dart';
+import '../../history/domain/history_stats.dart';
 import '../../history/presentation/history_provider.dart';
 import '../../scan/domain/waste_category.dart';
-
-final historyStatsProvider =
-    FutureProvider.autoDispose<Map<WasteCategory, int>>((ref) async {
-      final repo = ref.watch(historyRepositoryProvider);
-      final userId = ref.watch(authControllerProvider).value?.id;
-      return repo.countByCategory(userId: userId);
-    });
 
 class DonutData {
   final int organic;
@@ -66,6 +64,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final authState = ref.watch(authControllerProvider);
     final user = authState.value;
     final homeState = ref.watch(homeSummaryProvider);
+    final statsAsync = ref.watch(historyStatsProvider);
+    final progressAsync = ref.watch(userProgressProvider);
     final isGuest = user?.isGuest ?? true;
 
     return Scaffold(
@@ -109,7 +109,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   children: [
                     _buildSectionLabel('PENCAPAIANMU'),
                     const SizedBox(height: 9),
-                    _buildStatsRow(homeState.value!),
+                    _buildStatsRow(homeState.value!, progressAsync),
                   ],
                 ),
               ),
@@ -123,7 +123,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 children: [
                   _buildSectionLabel('AKTIVITAS PEMILAHAN'),
                   const SizedBox(height: 9),
-                  _buildDonutCard(theme),
+                  _buildDonutCard(theme, statsAsync),
                 ],
               ),
             ),
@@ -161,25 +161,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Widget _buildHeader(ThemeData theme, dynamic user, dynamic summary) {
     final name = user?.displayName ?? 'Tamu';
+    final email = user?.email ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     final isGuest = user?.isGuest ?? true;
-    final email = user?.email ?? (isGuest ? 'Mode Tamu • Akses offline' : '');
 
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF064E3B), // Deep emerald
-            Color(0xFF065F46), // Forest green
-            Color(0xFF0F766E), // Teal
-          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF064E3B), Color(0xFF022C22)],
         ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
         boxShadow: [
           BoxShadow(
@@ -338,7 +334,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  Widget _buildStatsRow(dynamic summary) {
+  Widget _buildStatsRow(
+    dynamic summary,
+    AsyncValue<UserProgress> progressAsync,
+  ) {
+    // Total poin dinamis: dasar (demo/tamu) + scan + hadiah login.
+    final progress = progressAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => null,
+    );
+    final totalPoints = progress?.totalPoints ?? (summary.points as int);
+    final scanPoints = progress?.scanPoints ?? 0;
+    final loginPoints = progress?.loginPoints ?? 0;
+    final pointsToday = progress?.pointsToday ?? 0;
+    final dailyLimit = progress?.dailyLimit ?? 150;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
@@ -353,36 +363,74 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.stars_rounded,
-              iconColor: const Color(0xFFF59E0B),
-              iconBgColor: const Color(0xFFFEF3C7),
-              label: 'Poin',
-              value: summary.points.toString(),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.stars_rounded,
+                  iconColor: const Color(0xFFF59E0B),
+                  iconBgColor: const Color(0xFFFEF3C7),
+                  label: 'Poin',
+                  value: totalPoints.toString(),
+                ),
+              ),
+              Container(height: 36, width: 1, color: Colors.grey.shade200),
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.local_fire_department_rounded,
+                  iconColor: const Color(0xFFEA580C),
+                  iconBgColor: const Color(0xFFFFEDD5),
+                  label: 'Hari Beruntun',
+                  value: summary.streakDays.toString(),
+                ),
+              ),
+              Container(height: 36, width: 1, color: Colors.grey.shade200),
+              Expanded(
+                child: _buildStatItem(
+                  icon: Icons.workspace_premium_rounded,
+                  iconColor: const Color(0xFF059669),
+                  iconBgColor: const Color(0xFFD1FAE5),
+                  label: 'Badge',
+                  value: summary.unlockedBadges.toString(),
+                ),
+              ),
+            ],
           ),
-          Container(height: 36, width: 1, color: Colors.grey.shade200),
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.local_fire_department_rounded,
-              iconColor: const Color(0xFFEA580C),
-              iconBgColor: const Color(0xFFFFEDD5),
-              label: 'Hari Beruntun',
-              value: summary.streakDays.toString(),
-            ),
-          ),
-          Container(height: 36, width: 1, color: Colors.grey.shade200),
-          Expanded(
-            child: _buildStatItem(
-              icon: Icons.workspace_premium_rounded,
-              iconColor: const Color(0xFF059669),
-              iconBgColor: const Color(0xFFD1FAE5),
-              label: 'Badge',
-              value: summary.unlockedBadges.toString(),
-            ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              Text(
+                'Scan $scanPoints • Login $loginPoints • Hari ini $pointsToday/$dailyLimit',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+              GestureDetector(
+                onTap: () => PointsInfoSheet.show(context),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 14,
+                      color: Color(0xFF059669),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Cara Mendapatkan Poin',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF059669),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -397,14 +445,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required String value,
   }) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: iconBgColor, shape: BoxShape.circle),
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+          ),
           child: Icon(icon, color: iconColor, size: 20),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           value,
           style: const TextStyle(
@@ -427,9 +477,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  Widget _buildDonutCard(ThemeData theme) {
-    final statsAsync = ref.watch(historyStatsProvider);
-
+  Widget _buildDonutCard(ThemeData theme, AsyncValue<HistoryStats> statsAsync) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -487,86 +535,147 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           const SizedBox(height: 20),
           statsAsync.when(
             data: (stats) {
-              final org = stats[WasteCategory.organik] ?? 0;
-              final anorg = stats[WasteCategory.anorganik] ?? 0;
+              final org = stats.organicCount;
+              final anorg = stats.anorganicCount;
               final data = DonutData(organic: org, anorganic: anorg);
 
               if (data.total == 0) {
                 return _buildEmptyDonut();
               }
 
-              return Row(
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Donut Chart dengan Total di Tengah
-                  SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AnimatedBuilder(
-                          animation: _animation,
-                          builder: (context, child) {
-                            return CustomPaint(
-                              size: const Size(120, 120),
-                              painter: DonutPainter(
-                                organicRatio: data.organicRatio,
-                                anorganicRatio: data.anorganicRatio,
-                                animationValue: _animation.value,
-                              ),
-                            );
-                          },
+                  Row(
+                    children: [
+                      Text(
+                        'Kategori Utama',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
                         ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Total ${data.total} pemindaian',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      // Donut Chart dengan Total di Tengah
+                      SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: Stack(
+                          alignment: Alignment.center,
                           children: [
-                            Text(
-                              '${data.total}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
-                              ),
+                            AnimatedBuilder(
+                              animation: _animation,
+                              builder: (context, child) {
+                                return CustomPaint(
+                                  size: const Size(120, 120),
+                                  painter: DonutPainter(
+                                    organicRatio: data.organicRatio,
+                                    anorganicRatio: data.anorganicRatio,
+                                    animationValue: _animation.value,
+                                  ),
+                                );
+                              },
                             ),
-                            Text(
-                              'Total Item',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${data.total}',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Text(
+                                  'Total Item',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    color: Colors.grey.shade500,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 18),
+                      ),
+                      const SizedBox(width: 18),
 
-                  // Keterangan Legend yang Rapi
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLegendItem(
-                          'Organik',
-                          org,
-                          data.organicRatio,
-                          const Color(0xFF10B981),
-                          const Color(0xFFECFDF5),
+                      // Keterangan Legend yang Rapi
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLegendItem(
+                              'Organik',
+                              org,
+                              data.organicRatio,
+                              const Color(0xFF10B981),
+                              const Color(0xFFECFDF5),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildLegendItem(
+                              'Anorganik',
+                              anorg,
+                              data.anorganicRatio,
+                              const Color(0xFF0284C7),
+                              const Color(0xFFF0F9FF),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 10),
-                        _buildLegendItem(
-                          'Anorganik',
-                          anorg,
-                          data.anorganicRatio,
-                          const Color(0xFF0284C7),
-                          const Color(0xFFF0F9FF),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text(
+                        'Rincian Sub-kategori',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (stats.typedTotal > 0)
+                        Text(
+                          '${stats.typedTotal} terklasifikasi',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (stats.sortedWasteTypes.isEmpty)
+                    Text(
+                      'Rincian sub-kategori belum tersedia',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade500,
+                      ),
+                    )
+                  else
+                    ...stats.sortedWasteTypes.map(
+                      (entry) => _buildWasteTypeStatItem(
+                        entry.key,
+                        entry.value,
+                        stats.typedTotal,
+                      ),
+                    ),
                 ],
               );
             },
@@ -582,6 +691,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 TextButton(
                   onPressed: () => ref.refresh(historyStatsProvider),
                   child: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Satu baris rincian klasifikasi tingkat kedua (jenis sampah).
+  Widget _buildWasteTypeStatItem(WasteType wasteType, int count, int total) {
+    final isOrganic = wasteType.category == WasteCategory.organik;
+    final color = isOrganic ? const Color(0xFF10B981) : const Color(0xFF0284C7);
+    final ratio = total == 0 ? 0.0 : count / total;
+    final pct = (ratio * 100).toStringAsFixed(1);
+    final categoryLabel = isOrganic
+        ? 'Organik'
+        : (wasteType.isHazardous ? 'Anorganik • B3' : 'Anorganik');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withAlpha(25),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(wasteType.icon, size: 18, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        wasteType.displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$pct%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$categoryLabel • $count item',
+                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 5,
+                    color: color,
+                    backgroundColor: color.withAlpha(30),
+                  ),
                 ),
               ],
             ),
@@ -673,7 +855,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
                 Text(
-                  '$count item ($pct%)',
+                  '$count item',
                   style: TextStyle(
                     color: Colors.grey.shade700,
                     fontSize: 11.5,
@@ -681,6 +863,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   ),
                 ),
               ],
+            ),
+          ),
+          Text(
+            '$pct%',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13.5,
+              color: color,
             ),
           ),
         ],
@@ -758,8 +948,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    title: Row(
-                      children: const [
+                    title: const Row(
+                      children: [
                         Icon(Icons.eco, color: Color(0xFF059669)),
                         SizedBox(width: 8),
                         Text(
@@ -778,7 +968,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         Text(
                           'Aplikasi klasifikasi sampah Organik dan Anorganik berbasis AI.',
                         ),
-                        SizedBox(height: 12),
+                        SizedBox(height: 8),
                         Text(
                           'Proyek PBL Politeknik Negeri Malang',
                           style: TextStyle(fontWeight: FontWeight.bold),
@@ -806,7 +996,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 );
               },
             ),
-            Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.shade100,
+              indent: 64,
+            ),
             _buildMenuItem(
               icon: Icons.logout_rounded,
               iconColor: const Color(0xFFEF4444),
@@ -827,7 +1022,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     content: Text(
-                      isGuest ? 'Anda akan kembali ke halaman masuk.' : 'Anda harus masuk kembali untuk melanjutkan misi dan melihat profil Anda.',
+                      isGuest
+                          ? 'Anda akan kembali ke halaman masuk.'
+                          : 'Anda harus masuk kembali untuk melanjutkan misi dan melihat profil Anda.',
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                     actions: [

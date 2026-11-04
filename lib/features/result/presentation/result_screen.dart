@@ -9,6 +9,7 @@ import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../../core/constants/ml_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../gamification/domain/points_policy.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
 import 'widgets/eco_impact_card.dart';
@@ -25,7 +26,7 @@ class ResultScreen extends ConsumerStatefulWidget {
 }
 
 class _ResultScreenState extends ConsumerState<ResultScreen> {
-  bool _hasShownCelebration = false;
+  ScanPointResult? _pointResult;
 
   @override
   void initState() {
@@ -48,6 +49,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ref
               .read(historyNotifierProvider.notifier)
               .saveScanToHistory(next.value!)
+              .then((pointResult) {
+                if (!context.mounted) return;
+                setState(() => _pointResult = pointResult);
+              })
               .catchError((e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -58,19 +63,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 );
               });
 
-          // Tampilkan animasi reward poin jika fitur poin aktif setelah proses pemindaian selesai
-          if (previous is AsyncLoading &&
-              !_hasShownCelebration &&
-              MlConfig.showScanPoints) {
-            _hasShownCelebration = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) return;
-              PointRewardDialog.show(
-                context,
-                pointsEarned: MlConfig.scanPointsReward,
-              );
-            });
-          }
         }
       },
     );
@@ -122,6 +114,40 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         },
         error: (err, stack) => _buildErrorView(context),
         loading: () => _buildLoadingView(),
+      ),
+    );
+  }
+
+  Widget _buildPointChip() {
+    final pointResult = _pointResult;
+    final text = pointResult?.message ?? 'Menghitung poin...';
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.blue, size: 16),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -229,26 +255,36 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Poin Pemindaian (Jika aktif)
+          // Poin Pemindaian (Jika aktif) — poin aktual sesuai aturan
           if (MlConfig.showScanPoints) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: AnimatedRewardBadge(points: MlConfig.scanPointsReward),
-            ),
+            _buildPointChip(),
             const SizedBox(height: 16),
           ],
 
-          // Kategori dan Confidence
+          // Klasifikasi tingkat 1 (kategori) dan confidence
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                categoryName,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kategori',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  Text(
+                    categoryName,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
               Text(
                 '$confPercent%',
@@ -279,14 +315,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Baris Jenis Sampah & Tag B3
+          // Sub-kategori (klasifikasi tingkat 2) & Tag B3
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 8,
             runSpacing: 8,
             children: [
               Text(
-                'Jenis sampah',
+                'Sub-kategori',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: Colors.grey.shade600,
                   fontSize: 13,

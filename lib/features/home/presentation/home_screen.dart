@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/constants/app_constants.dart';
+import '../../gamification/presentation/mission_provider.dart';
 
 import 'home_provider.dart';
 import 'widgets/level_card.dart';
@@ -16,12 +18,10 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final homeState = ref.watch(homeSummaryProvider);
+    final dailyMission = ref.watch(featuredDailyMissionProvider).value;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Beranda'),
-        centerTitle: false,
-      ),
+      appBar: AppBar(title: const Text('Beranda'), centerTitle: false),
       body: homeState.when(
         data: (summary) {
           return SingleChildScrollView(
@@ -81,8 +81,31 @@ class HomeScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (summary.dailyMissions.isNotEmpty)
-                    MissionCard(mission: summary.dailyMissions.first)
+                  if (dailyMission != null)
+                    MissionCard(
+                      mission: dailyMission,
+                      onStart: () => context.go('/scan'),
+                      onClaim: dailyMission.isClaimable
+                          ? () async {
+                              final result = await claimMission(
+                                ref,
+                                mission: dailyMission,
+                              );
+                              if (!context.mounted) return;
+                              final message = result.success
+                                  ? 'Hadiah misi diklaim: +${result.points} poin'
+                                  : 'Hadiah misi ini sudah diklaim';
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(message),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                            }
+                          : null,
+                    )
                   else
                     const Text('Tidak ada misi hari ini.'),
                 ],

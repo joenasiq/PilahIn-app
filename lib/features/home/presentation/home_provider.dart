@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/guest/guest_progress_store.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../gamification/presentation/user_progress_provider.dart';
 import '../data/firebase_home_repository.dart';
 import '../data/guest_home_repository.dart';
 import '../data/home_repository.dart';
@@ -19,13 +20,23 @@ final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return FirebaseHomeRepository(FirebaseFirestore.instance, uid: user.id);
 });
 
-final homeSummaryProvider = FutureProvider.autoDispose<HomeSummary>((ref) async {
+final homeSummaryProvider = FutureProvider.autoDispose<HomeSummary>((
+  ref,
+) async {
   final user = ref.watch(authControllerProvider).value;
   final repository = ref.watch(homeRepositoryProvider);
+  final isDemoOrGuest = ref.watch(isDemoOrGuestProvider);
+  final progress = await ref.watch(userProgressProvider.future);
 
   final userName = user != null
       ? (user.isGuest ? 'Tamu' : user.displayName)
       : 'Tamu';
 
-  return repository.getHomeSummary(userName: userName);
+  final summary = await repository.getHomeSummary(
+    userName: userName,
+    isDemoOrGuest: isDemoOrGuest,
+  );
+
+  // Poin di beranda memakai total poin dinamis (riwayat + hadiah login).
+  return summary.copyWith(points: progress.totalPoints);
 });

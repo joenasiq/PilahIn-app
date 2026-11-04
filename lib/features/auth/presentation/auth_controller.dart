@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/guest/guest_progress_store.dart';
 import '../../../core/providers/shared_preferences_provider.dart';
 import '../data/firebase_auth_repository.dart';
@@ -43,6 +44,25 @@ class AuthController extends AsyncNotifier<AppUser?> {
     }
   }
 
+  Future<void> register({
+    required String displayName,
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      final user = await repo.register(
+        displayName: displayName,
+        email: email,
+        password: password,
+      );
+      state = AsyncValue.data(user);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> loginAsGuest() async {
     state = const AsyncValue.loading();
     try {
@@ -66,6 +86,23 @@ class AuthController extends AsyncNotifier<AppUser?> {
   }
 }
 
-final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(() {
-  return AuthController();
+final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(
+  () {
+    return AuthController();
+  },
+);
+
+/// Id akun yang sedang aktif. Dipakai untuk memisahkan riwayat, poin, dan
+/// hadiah login antar akun pada perangkat yang sama.
+final currentUserIdProvider = Provider<String>((ref) {
+  final user = ref.watch(authControllerProvider).value;
+  if (user == null || user.id.isEmpty) return AppConstants.demoUserId;
+  return user.id;
+});
+
+/// Apakah akun aktif adalah akun demo atau tamu (mendapat poin dasar dummy).
+final isDemoOrGuestProvider = Provider<bool>((ref) {
+  final user = ref.watch(authControllerProvider).value;
+  if (user == null) return true;
+  return user.isGuest || user.id == AppConstants.demoUserId;
 });

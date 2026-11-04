@@ -145,6 +145,15 @@ class GuidanceScreen extends ConsumerWidget {
                     _buildReuseIdeasSection(context, guidance.reuseIdeas),
                   ],
 
+                  // 9b. Bagian "Daur Ulang" sesuai sub-kategori (jika ada)
+                  if (GuidanceContent.getRecycleTips(wasteType).isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _buildRecycleSection(
+                      context,
+                      GuidanceContent.getRecycleTips(wasteType),
+                    ),
+                  ],
+
                   const SizedBox(height: 24),
 
                   // 10. Tombol Lihat Riwayat Pemindaian
@@ -734,6 +743,62 @@ class GuidanceScreen extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+
+  /// Bagian "Daur Ulang" sesuai sub-kategori sampah.
+  Widget _buildRecycleSection(BuildContext context, List<String> tips) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.recycling, color: Colors.blue.shade700, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              'Daur Ulang',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...tips.map(
+          (tip) => Container(
+            margin: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 10),
+                  child: Icon(
+                    Icons.autorenew,
+                    size: 16,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    tip,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.blue.shade900,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

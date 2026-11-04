@@ -50,6 +50,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           'Riwayat Pemindaian',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+
         leading: IconButton(
           tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back),
@@ -149,7 +150,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ? null
           : const Icon(Icons.arrow_drop_down, size: 18, color: Colors.black54),
       label: Text(
-        isSelected ? 'Jenis: ${state.filterWasteType!.displayName}' : 'Jenis',
+        isSelected
+            ? 'Sub-kategori: ${state.filterWasteType!.displayName}'
+            : 'Sub-kategori',
       ),
       selected: isSelected,
       onSelected: (_) {
@@ -159,7 +162,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       deleteIcon: isSelected
           ? const Icon(Icons.close, size: 16, color: Colors.white)
           : null,
-      deleteButtonTooltipMessage: 'Hapus filter jenis',
+      deleteButtonTooltipMessage: 'Hapus filter sub-kategori',
       selectedColor: AppColors.primaryGreen,
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : Colors.black87,
@@ -199,7 +202,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Pilih Jenis Sampah',
+                      'Pilih Sub-kategori',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -222,7 +225,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         Icons.all_inclusive,
                         color: Colors.grey,
                       ),
-                      title: const Text('Semua jenis'),
+                      title: const Text('Semua sub-kategori'),
                       selected: state.filterWasteType == null,
                       trailing: state.filterWasteType == null
                           ? const Icon(

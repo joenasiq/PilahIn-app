@@ -1,37 +1,26 @@
 import 'dart:developer' as developer;
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ml_config.dart';
-import '../../../core/guest/guest_progress_store.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/providers/shared_preferences_provider.dart';
 import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../gamification/data/points_ledger_service.dart';
+import '../../gamification/domain/points_policy.dart';
+import '../../gamification/presentation/gamification_provider.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
-import '../data/firebase_history_repository.dart';
-import '../data/guest_history_repository.dart';
+import '../data/sqflite_history_repository.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
-import '../../gamification/presentation/gamification_provider.dart';
+import '../domain/history_stats.dart';
 
-// NOTE: `guestProgressStoreProvider` kini didefinisi di
-// core/guest/guest_progress_store.dart (import di atas) agar bisa dipakai
-// banyak fitur tanpa import melingkar.
-
-/// Repository riwayat terpilih berdasarkan sesi aktif:
-/// - tamu / belum login -> [GuestHistoryRepository] (lokal)
-/// - akun login         -> [FirebaseHistoryRepository] (Firestore)
-///
-/// Provider ini berganti instance saat auth berubah; `HistoryNotifier`
-/// akan re-`build` dan memuat ulang data dari repository baru.
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  final user = ref.watch(authControllerProvider).value;
-  if (user == null || user.isGuest) {
-    return GuestHistoryRepository(ref.watch(guestProgressStoreProvider));
-  }
-  return FirebaseHistoryRepository(FirebaseFirestore.instance, uid: user.id);
+  return SqfliteHistoryRepository(ref.watch(appDatabaseProvider));
 });
 
 class HistoryState {
@@ -96,13 +85,13 @@ class HistoryState {
 }
 
 class HistoryNotifier extends Notifier<HistoryState> {
-  // NOTE: sengaja bukan `late final` — provider repository berganti saat
-  // auth berubah (tamu <-> akun), sehingga build() bisa berjalan ulang.
   late HistoryRepository _repository;
+  late String _userId;
 
   @override
   HistoryState build() {
     _repository = ref.watch(historyRepositoryProvider);
+    _userId = ref.watch(currentUserIdProvider);
     Future.microtask(() => _init());
     return HistoryState();
   }
@@ -110,13 +99,13 @@ class HistoryNotifier extends Notifier<HistoryState> {
   Future<void> _init() async {
     try {
       if (AppConstants.seedDemoHistory) {
-        final currentUserId = ref.read(authControllerProvider).value?.id;
-        final count = await _repository.count(userId: currentUserId);
+        final count = await _repository.count(userId: _userId);
         if (count == 0) {
           // Demo entries dengan variasi jenis sampah
           final now = DateTime.now();
           final demoEntries = [
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_1',
               wasteType: WasteType.cardboard,
               confidence: 0.942,
@@ -125,6 +114,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
               createdAt: now.subtract(const Duration(days: 1, hours: 2)),
             ),
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_2',
               wasteType: WasteType.biological,
               confidence: 0.923,
@@ -133,6 +123,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
               createdAt: now.subtract(const Duration(days: 2, hours: 5)),
             ),
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_3',
               wasteType: WasteType.plastic,
               confidence: 0.917,
@@ -141,6 +132,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
               createdAt: now.subtract(const Duration(days: 3, hours: 1)),
             ),
             HistoryEntry(
+              userId: _userId,
               scanKey: 'demo_4',
               wasteType: WasteType.battery,
               confidence: 0.885,
@@ -163,43 +155,51 @@ class HistoryNotifier extends Notifier<HistoryState> {
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      // Riwayat hanya menampilkan milik user aktif (tamu atau akun login).
-      final currentUserId = ref.read(authControllerProvider).value?.id;
-
-      // 1. Fetch filtered by category & user in SQL
+      // 1. Fetch filtered by category in SQL
       final rawEntries = await _repository.getAll(
+        userId: _userId,
         category: state.filterCategory,
-        userId: currentUserId,
       );
-      
+
       // 2. Filter gabungan kategori & jenis sampah (AND)
       List<HistoryEntry> filteredEntries = rawEntries;
 
       if (state.filterCategory != null) {
-        filteredEntries = filteredEntries.where((entry) => entry.category == state.filterCategory).toList();
+        filteredEntries = filteredEntries
+            .where((entry) => entry.category == state.filterCategory)
+            .toList();
       }
 
       if (state.filterWasteType != null) {
-        filteredEntries = filteredEntries.where((entry) => entry.wasteType == state.filterWasteType).toList();
+        filteredEntries = filteredEntries
+            .where((entry) => entry.wasteType == state.filterWasteType)
+            .toList();
       }
 
       // 3. Pencarian mencocokkan judul, kategori, tanggal, nama jenis, dan labelKey
       if (state.searchQuery.isNotEmpty) {
         final query = state.searchQuery.toLowerCase();
         final dateFormat = DateFormat('dd MMM yyyy • HH:mm', 'id_ID');
-        
+
         filteredEntries = filteredEntries.where((entry) {
-          final title = entry.wasteType?.displayName ?? entry.itemName ?? (entry.category == WasteCategory.organik ? 'Sampah Organik' : 'Sampah Anorganik');
-          final categoryLabel = entry.category == WasteCategory.organik ? 'Organik' : 'Anorganik';
+          final title =
+              entry.wasteType?.displayName ??
+              entry.itemName ??
+              (entry.category == WasteCategory.organik
+                  ? 'Sampah Organik'
+                  : 'Sampah Anorganik');
+          final categoryLabel = entry.category == WasteCategory.organik
+              ? 'Organik'
+              : 'Anorganik';
           final wasteTypeName = entry.wasteType?.displayName ?? '';
           final wasteTypeKey = entry.wasteType?.labelKey ?? '';
           final dateStr = dateFormat.format(entry.createdAt);
-          
+
           return title.toLowerCase().contains(query) ||
-                 categoryLabel.toLowerCase().contains(query) ||
-                 wasteTypeName.toLowerCase().contains(query) ||
-                 wasteTypeKey.toLowerCase().contains(query) ||
-                 dateStr.toLowerCase().contains(query);
+              categoryLabel.toLowerCase().contains(query) ||
+              wasteTypeName.toLowerCase().contains(query) ||
+              wasteTypeKey.toLowerCase().contains(query) ||
+              dateStr.toLowerCase().contains(query);
         }).toList();
       }
 
@@ -251,31 +251,48 @@ class HistoryNotifier extends Notifier<HistoryState> {
     }
   }
 
-  Future<void> saveScanToHistory(ClassificationResult result) async {
+  Future<ScanPointResult> saveScanToHistory(ClassificationResult result) async {
     try {
       // Idempotent key to avoid duplicate entries for the exact same scan result
-      final scanKey = '${result.imagePath}_${result.timestamp.millisecondsSinceEpoch}';
-      
-      final points = MlConfig.showScanPoints ? MlConfig.scanPointsReward : 0;
-      
+      final scanKey =
+          '${result.imagePath}_${result.timestamp.millisecondsSinceEpoch}';
+
+      final ledger = PointsLedgerService(ref.read(sharedPreferencesProvider));
+      final alreadyScannedToday = await _repository.hasScannedWasteTypeOn(
+        userId: _userId,
+        wasteType: result.wasteType,
+        day: result.timestamp,
+      );
+      final pointsEarnedToday = await ledger.getDailyPoints(
+        _userId,
+        date: result.timestamp,
+      );
+
+      final pointResult = PointsPolicy.compute(
+        isUncertain: result.isUncertain,
+        alreadyScannedToday: alreadyScannedToday,
+        pointsEarnedToday: pointsEarnedToday,
+        enabled: MlConfig.showScanPoints,
+      );
+
       final entry = HistoryEntry(
-        // Milik user aktif; default 'guest_id' bila sesi tidak ada.
-        userId: ref.read(authControllerProvider).value?.id ?? 'guest_id',
         scanKey: scanKey,
+        userId: _userId,
         wasteType: result.wasteType,
         confidence: result.confidence,
         isUncertain: result.isUncertain,
-        pointsEarned: points,
+        pointsEarned: pointResult.points,
         imagePath: result.imagePath,
         createdAt: result.timestamp,
       );
-      
-      await _repository.add(entry);
 
-      // Akun: hitung ulang gamifikasi cloud (poin/streak/badge/misi)
-      // setelah scan tersimpan. Gagal recompute tidak boleh menggagalkan
-      // penyimpanan scan (data scan tetap valid; recompute berikutnya
-      // akan memperbaiki state karena berbasis recompute dari nol).
+      await _repository.add(entry);
+      await ledger.addDailyPoints(
+        _userId,
+        pointResult.points,
+        date: result.timestamp,
+      );
+
       final progression = ref.read(progressionServiceProvider);
       if (progression != null) {
         try {
@@ -286,6 +303,7 @@ class HistoryNotifier extends Notifier<HistoryState> {
       }
 
       await refresh(); // Refresh list if needed
+      return pointResult;
     } catch (e) {
       // Kegagalan menyimpan tidak boleh mengganggu layar Hasil
       developer.log('Riwayat gagal disimpan: $e');
@@ -295,5 +313,25 @@ class HistoryNotifier extends Notifier<HistoryState> {
 }
 
 final historyNotifierProvider = NotifierProvider<HistoryNotifier, HistoryState>(
-  HistoryNotifier.new
+  HistoryNotifier.new,
 );
+
+/// Statistik pemindaian (kategori, jenis sampah, dan total poin).
+/// Ikut dihitung ulang setiap riwayat berubah, misalnya setelah scan baru.
+final historyStatsProvider = FutureProvider.autoDispose<HistoryStats>((
+  ref,
+) async {
+  ref.watch(historyNotifierProvider);
+  final repository = ref.watch(historyRepositoryProvider);
+  final userId = ref.watch(currentUserIdProvider);
+
+  final byCategory = await repository.countByCategory(userId: userId);
+  final byWasteType = await repository.countByWasteType(userId: userId);
+  final totalPoints = await repository.sumPointsEarned(userId: userId);
+
+  return HistoryStats(
+    byCategory: byCategory,
+    byWasteType: byWasteType,
+    totalPoints: totalPoints,
+  );
+});

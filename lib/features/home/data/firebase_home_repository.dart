@@ -19,7 +19,10 @@ class FirebaseHomeRepository implements HomeRepository {
   final String uid;
 
   @override
-  Future<HomeSummary> getHomeSummary({required String userName}) async {
+  Future<HomeSummary> getHomeSummary({
+    required String userName,
+    bool isDemoOrGuest = false,
+  }) async {
     final now = DateTime.now();
 
     final userSnap = await _firestore.collection('users').doc(uid).get();

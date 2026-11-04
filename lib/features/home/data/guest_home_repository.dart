@@ -15,7 +15,10 @@ class GuestHomeRepository implements HomeRepository {
   final GuestProgressStore _store;
 
   @override
-  Future<HomeSummary> getHomeSummary({required String userName}) async {
+  Future<HomeSummary> getHomeSummary({
+    required String userName,
+    bool isDemoOrGuest = true,
+  }) async {
     final now = DateTime.now();
     final scans = _store.loadScans();
 
@@ -24,14 +27,18 @@ class GuestHomeRepository implements HomeRepository {
     final level = levelForPoints(points);
     final next = nextLevelMinPoints(points);
 
-    final unlockedBadges =
-        kBadges.where((def) => badgeProgress(def, agg) >= def.target).length;
+    final unlockedBadges = kBadges
+        .where((def) => badgeProgress(def, agg) >= def.target)
+        .length;
 
     // Kartu misi beranda hanya menampilkan misi harian hari ini.
     final dailyMissions = <DailyMission>[];
     for (final def in kMissions) {
       if (def.period != 'harian') continue;
-      final progress = missionProgress(def, scansInPeriod(scans, def, now: now));
+      final progress = missionProgress(
+        def,
+        scansInPeriod(scans, def, now: now),
+      );
       dailyMissions.add(
         DailyMission(
           title: def.title,

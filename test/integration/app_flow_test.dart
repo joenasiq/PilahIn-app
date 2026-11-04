@@ -69,13 +69,8 @@ void main() {
           scanCameraServiceProvider.overrideWithValue(FakeScanService()),
           historyRepositoryProvider.overrideWithValue(fakeHistoryRepo),
           gamificationRepositoryProvider.overrideWithValue(fakeGamificationRepo),
-          // Test tidak punya Firebase: repository beranda & progression
-          // service (khusus akun cloud) dioverride agar tidak menyentuh
-          // FirebaseFirestore.instance.
-          homeRepositoryProvider
-              .overrideWithValue(MockHomeRepository(fakeGamificationRepo)),
+          homeRepositoryProvider.overrideWithValue(MockHomeRepository(fakeGamificationRepo)),
           progressionServiceProvider.overrideWithValue(null),
-          // Jangan buka SQLite sungguhan di widget test.
           authRepositoryProvider.overrideWithValue(fakeAuthRepo),
         ],
         child: const App(),
@@ -85,9 +80,11 @@ void main() {
     await tester.pump(const Duration(seconds: 3)); // For splash screen
   }
 
-  testWidgets('Alur 1: Buka -> Tamu -> Profil -> Keluar -> Login', (WidgetTester tester) async {
+  testWidgets('Alur 1: Buka -> Tamu -> Profil -> Keluar -> Login', (
+    WidgetTester tester,
+  ) async {
     await pumpApp(tester);
-    
+
     // Login
     expect(find.text('Masuk Sebagai Tamu'), findsOneWidget);
     await tester.tap(find.text('Masuk Sebagai Tamu'));
@@ -97,13 +94,13 @@ void main() {
 
     // Beranda
     expect(find.text('Beranda'), findsWidgets);
-    
+
     // Ke Profil
     await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Tamu'), findsWidgets);
-    
+
     // Logout
     final logoutFinder = find.text('Keluar').last;
     await tester.ensureVisible(logoutFinder);
@@ -111,133 +108,183 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    
+
     // Dialog Konfirmasi
     expect(find.text('Keluar dari akun?'), findsOneWidget);
     await tester.tap(find.text('Keluar').last); // The button
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    
+
     // Kembali ke login
     expect(find.text('Masuk Sebagai Tamu'), findsOneWidget);
   });
 
-  testWidgets('Alur 2: Login -> Pindai -> Hasil -> Panduan -> Riwayat -> 1 entri', (WidgetTester tester) async {
+  testWidgets(
+    'Alur 2: Login -> Pindai -> Hasil -> Panduan -> Riwayat -> 1 entri',
+    (WidgetTester tester) async {
+      await pumpApp(tester);
+
+      // Login
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        AppConstants.demoEmail,
+      );
+      await tester.enterText(
+        find.byType(TextFormField).last,
+        AppConstants.demoPassword,
+      );
+      await tester.tap(find.text('Masuk'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      // Pindai
+      expect(find.text('Beranda'), findsWidgets); // Ensure we reached home
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomNavigationBar),
+          matching: find.byIcon(Icons.crop_free),
+        ),
+      ); // Bottom Nav
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      // Ambil foto
+      await tester.tap(find.bySemanticsLabel('Ambil foto'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2)); // Wait for analysis
+      await tester.pumpAndSettle();
+
+      // Hasil
+      expect(find.text('Hasil Pemindaian'), findsWidgets);
+      expect(find.text('Tidak ada gambar yang dipilih'), findsNothing);
+
+      // Panduan Lengkap
+      final panduanFinder = find.text('Panduan Lengkap');
+      expect(panduanFinder, findsWidgets);
+      await tester.ensureVisible(panduanFinder);
+      await tester.tap(panduanFinder);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Panduan Pengelolaan'), findsWidgets); // Appbar title
+
+      // Kembali ke hasil
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Kembali ke scan
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Kembali ke Beranda (menu bar disembunyikan di alur Pindai)
+      await tester.tap(find.byIcon(Icons.arrow_back_ios));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Riwayat
+      await tester.tap(find.byIcon(Icons.menu_book));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Riwayat Pemindaian'), findsWidgets);
+
+      // Pastikan 1 entri tersimpan
+      expect(find.byType(Card), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'Alur 3: Profil -> Misi -> Detail Badge -> Pindai Sekarang -> Tab Pindai',
+    (WidgetTester tester) async {
+      await pumpApp(tester);
+
+      // Login as guest
+      await tester.tap(find.text('Masuk Sebagai Tamu'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Go to Profile
+      await tester.tap(find.byIcon(Icons.person_outline));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Go to Misi & Lencana
+      final misiFinder = find.text('Misi & Lencana');
+      await tester.ensureVisible(misiFinder);
+      await tester.tap(misiFinder);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Go to Koleksi Badge tab
+      await tester.tap(find.text('Koleksi Badge'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Tap locked badge
+      final masterKomposFinder = find.text('Master Kompos');
+      await tester.ensureVisible(masterKomposFinder);
+      await tester.tap(masterKomposFinder);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      // Detail Badge sheet
+      expect(find.text('Terkunci'), findsWidgets);
+
+      // Pindai Sekarang is inside the sheet
+      final pindaiBtnFinder = find.widgetWithText(
+        ElevatedButton,
+        'Pindai Sekarang',
+      );
+      await tester.ensureVisible(pindaiBtnFinder);
+      await tester.tap(pindaiBtnFinder);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      // Tab Pindai
+      expect(find.text('Arahkan Kamera ke Sampah'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Alur 5: Login -> Daftar akun baru -> Beranda', (
+    WidgetTester tester,
+  ) async {
     await pumpApp(tester);
-    
-    // Login
-    await tester.enterText(find.byType(TextFormField).first, AppConstants.demoEmail);
-    await tester.enterText(find.byType(TextFormField).last, AppConstants.demoPassword);
-    await tester.tap(find.text('Masuk'));
+
+    // Buka halaman daftar dari halaman login
+    expect(find.text('Belum punya akun?'), findsOneWidget);
+    await tester.tap(find.text('Daftar'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daftar Akun'), findsOneWidget);
+
+    // Isi formulir pendaftaran
+    await tester.enterText(find.byType(TextFormField).at(0), 'Pengguna Baru');
+    await tester.enterText(find.byType(TextFormField).at(1), 'baru@email.com');
+    await tester.enterText(find.byType(TextFormField).at(2), 'rahasia123');
+    await tester.enterText(find.byType(TextFormField).at(3), 'rahasia123');
+
+    final daftarButton = find.widgetWithText(ElevatedButton, 'Daftar');
+    await tester.ensureVisible(daftarButton);
+    await tester.tap(daftarButton);
     await tester.pump();
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    // Pindai
-    expect(find.text('Beranda'), findsWidgets); // Ensure we reached home
-    await tester.tap(find.descendant(
-      of: find.byType(BottomNavigationBar),
-      matching: find.byIcon(Icons.crop_free),
-    )); // Bottom Nav
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
-    
-    // Ambil foto
-    await tester.tap(find.bySemanticsLabel('Ambil foto'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 2)); // Wait for analysis
-    await tester.pumpAndSettle();
-    
-    // Hasil
-    expect(find.text('Hasil Pemindaian'), findsWidgets);
-    expect(find.text('Tidak ada gambar yang dipilih'), findsNothing);
-    
-    // Panduan Lengkap
-    final panduanFinder = find.text('Panduan Lengkap');
-    expect(panduanFinder, findsWidgets);
-    await tester.ensureVisible(panduanFinder);
-    await tester.tap(panduanFinder);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Panduan Pengelolaan'), findsWidgets); // Appbar title
-    
-    // Kembali ke hasil
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    
-    // Kembali ke scan
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    
-    // Beranda
-    await tester.tap(find.byIcon(Icons.home_outlined));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    
-    // Riwayat
-    await tester.tap(find.byIcon(Icons.menu_book));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Riwayat Pemindaian'), findsWidgets);
-    
-    // Pastikan 1 entri tersimpan
-    expect(find.byType(Card), findsWidgets);
+    // Pendaftaran berhasil dan langsung masuk ke Beranda
+    expect(find.text('Beranda'), findsWidgets);
   });
 
-  testWidgets('Alur 3: Profil -> Misi -> Detail Badge -> Pindai Sekarang -> Tab Pindai', (WidgetTester tester) async {
+  testWidgets('Alur 4: Back sistem dari Pindai kembali ke Beranda', (
+    WidgetTester tester,
+  ) async {
     await pumpApp(tester);
-    
-    // Login as guest
-    await tester.tap(find.text('Masuk Sebagai Tamu'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
 
-    // Go to Profile
-    await tester.tap(find.byIcon(Icons.person_outline));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-
-    // Go to Misi & Lencana
-    final misiFinder = find.text('Misi & Lencana');
-    await tester.ensureVisible(misiFinder);
-    await tester.tap(misiFinder);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-
-    // Go to Koleksi Badge tab
-    await tester.tap(find.text('Koleksi Badge'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-
-    // Tap locked badge
-    final masterKomposFinder = find.text('Master Kompos');
-    await tester.ensureVisible(masterKomposFinder);
-    await tester.tap(masterKomposFinder);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-
-    // Detail Badge sheet
-    expect(find.text('Terkunci'), findsWidgets);
-    
-    // Pindai Sekarang is inside the sheet
-    final pindaiBtnFinder = find.widgetWithText(ElevatedButton, 'Pindai Sekarang');
-    await tester.ensureVisible(pindaiBtnFinder);
-    await tester.tap(pindaiBtnFinder);
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
-
-    // Tab Pindai
-    expect(find.text('Arahkan Kamera ke Sampah'), findsOneWidget);
-  });
-
-  testWidgets('Alur 4: Back sistem dari Pindai kembali ke Beranda', (WidgetTester tester) async {
-    await pumpApp(tester);
-    
     // Login as guest
     await tester.tap(find.text('Masuk Sebagai Tamu'));
     await tester.pump();
