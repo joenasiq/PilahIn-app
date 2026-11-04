@@ -1,8 +1,20 @@
 # Rencana Penyimpanan Data PilahIn (Lokal + Firebase Cloud)
 
-> Status: **Fase 1–3 selesai** (2026-11-04). Fase 4–5 belum diimplementasikan.
+> Status: **Fase 1–4 selesai** (2026-11-04). Fase 5 belum diimplementasikan.
 >
-> **Log perubahan**: 2026-11-04 — Fase 3 selesai: pipeline gamifikasi cloud
+> **Log perubahan**: 2026-11-04 (perbaikan pasca-merge) — merge branch `bgsa`
+> (PR #7) menimbulkan conflict dua arsitektur data; resolusi manual merusak
+> `history_entry.dart` (duplikat `userId`) dan memutus 3 implementasi interface
+> baru. Diperbaiki: (1) deduplikasi `history_entry.dart`; (2)
+> `FirebaseAuthRepository.register` (Fase 4 aktif); (3) 4 method baru
+> `HistoryRepository` (`getBetween`, `countByWasteType`, `sumPointsEarned`,
+> `hasScannedWasteTypeOn`) diimplementasi di repo Firebase + guest; (4) **routing
+> riwayat dipulihkan ke cloud (Opsi A)**: akun → Firestore, tamu → lokal,
+> hook recompute kembali berfungsi. Mesin gamifikasi lokal tim (PointsPolicy +
+> PointsLedgerService) **dipertahankan**: `PointsPolicy` menentukan
+> `points_earned` per scan sebelum ditulis ke Firestore; UI misi/beranda tetap
+> versi tim yang kini membaca riwayat dari Firestore (lihat §4.1).
+> 2026-11-04 — Fase 3 selesai: pipeline gamifikasi cloud
 > (recompute total poin/streak/badge/misi setelah tiap scan + auto-merge
 > tamu→akun saat login), repository gamifikasi & home (Firebase + guest),
 > reference data di kode, test `progress_calculator`.
@@ -114,6 +126,28 @@ Turunan:
 - Poin tamu (tanpa persistensi): poin scan + hadiah badge terbuka + hadiah misi periode berjalan — dihitung ulang tiap baca (`computeDerivedPoints`).
 - Donut profil: `countByCategory` dari repository riwayat aktif.
 
+### 4.1 Koeksistensi dengan Mesin Gamifikasi Lokal Tim (pasca-merge `bgsa`)
+
+Merge branch `bgsa` membawa mesin gamifikasi **lokal** (SharedPreferences).
+Keputusan perbaikan (Opsi A, 2026-11-04): **jalur data = cloud, UI & aturan
+per-scan = versi tim**. Pembagian peran:
+
+| Komponen | Pemilik | Sumber data |
+|---|---|---|
+| `points_earned` per scan (`10/5/3`, batas 150/hari) | **Tim** — `PointsPolicy` | dihitung di `saveScanToHistory`, ditulis ke doc scan Firestore |
+| `HistoryRepository` (4 method baru: `getBetween`, `countByWasteType`, `sumPointsEarned`, `hasScannedWasteTypeOn`) | **Juan** | repo Firebase + guest (akun → Firestore, tamu → lokal) |
+| Tab Misi & klaim misi | **Tim** — `MissionService` + `PointsLedgerService` | progres dari riwayat (akun kini Firestore); status klaim di ledger **lokal** |
+| Poin beranda/profil yang ditampilkan | **Tim** — `userProgressProvider` | poin dasar (dummy, khusus demo/tamu) + poin scan (akun kini dari Firestore) + hadiah login & misi (ledger lokal) |
+| Tab Lencana | **Juan** — `badgesProvider` (+overlay klaim tim) | Firestore `users/{uid}/badges` |
+| `total_points`/streak/badge/misi di `users/{uid}` | **Juan** — `ProgressionService` | recompute dari scan Firestore + hadiah badge/misi **cloud** (auto-claim) |
+
+**Konsekuensi (divergensi yang disadari):** `users/{uid}.total_points`
+(mengikutkan hadiah badge & misi engine cloud) tidak selalu sama dengan angka
+poin yang ditampilkan UI (mengikutkan hadiah ledger lokal + poin dasar demo).
+Kedua-duanya diturunkan dari **scan Firestore yang sama**, jadi inti data
+(riwayat + poin per scan) konsisten. Penyatuan menjadi satu engine (Opsi C)
+disarankan sebagai tahap pembersihan sebelum sidang.
+
 ## 5. Auto-Merge Tamu → Akun (Fase 3)
 
 - Progres tamu (list scan) ada di `GuestProgressStore` (SharedPreferences JSON).
@@ -125,8 +159,10 @@ Turunan:
   3. `GuestProgressStore.clear()`.
 - Tamu tanpa progres → tidak ada yang di-merge. Gagal merge → login tetap
   berhasil; data tamu aman di lokal (dicoba lagi saat login berikutnya).
-- Registrasi (Fase 4) memakai alur yang sama: `register` → `_ensureUserDocument`
-  → `_mergeGuestProgress`.
+- Registrasi memakai alur yang sama — **sudah diimplementasikan** di
+  `FirebaseAuthRepository.register` (Fase 4): validasi (nama/email/panjang
+  sandi) → `createUserWithEmailAndPassword` → `updateDisplayName` →
+  `_ensureUserDocument(display_name)` → `_mergeGuestProgress` → sesi.
 
 ## 6. Pemetaan ke Kode
 
@@ -140,10 +176,16 @@ lib/core/providers/
 lib/core/guest/
   guest_progress_store.dart                      -- GuestProgressStore + guestProgressStoreProvider
 lib/features/auth/data/
-  firebase_auth_repository.dart                  -- login/guest/logout/getCurrentUser + _mergeGuestProgress
-  local_auth_repository.dart                     -- [DIHAPUS FASE 5] versi SQLite
+  firebase_auth_repository.dart                  -- login/**register**/guest/logout/getCurrentUser
+                                                   + _ensureUserDocument + _mergeGuestProgress
+  local_auth_repository.dart                     -- [DIHAPUS FASE 5] versi lokal (login + register)
+lib/features/auth/domain/
+  auth_validators.dart                           -- isValidEmail dkk (dipakai register)
+lib/features/auth/presentation/
+  register_screen.dart                           -- layar registrasi tim (Fase 4) -> AuthController.register
 lib/features/gamification/domain/
   reference_data.dart                            -- kLevels, kBadges (15, +metric), kMissions (2)
+  points_policy.dart                             -- [TIM] aturan poin per scan (10/5/3, limit 150/hari)
   progress_calculator.dart                       -- fungsi murni: dateKey/mondayKey/computeStreak/
                                                    aggregateScans/badgeProgress/missionProgress/
                                                    computeDerivedPoints (unit-testable)
@@ -151,27 +193,33 @@ lib/features/gamification/data/
   progression_service.dart                       -- recomputeAll(): 4 read + 1 WriteBatch (akun)
   firebase_gamification_repository.dart          -- baca badge & misi dari Firestore
   guest_gamification_repository.dart             -- turunan dari GuestProgressStore
+  points_ledger_service.dart                     -- [TIM] ledger poin lokal (daily/login/klaim)
+  mission_service.dart                           -- [TIM] misi harian/mingguan dari riwayat + klaim
   mock_gamification_repository.dart              -- [DIHAPUS FASE 5] hanya dipakai test
 lib/features/home/data/
   firebase_home_repository.dart                  -- HomeSummary dari Firestore (akun)
   guest_home_repository.dart                     -- HomeSummary turunan (tamu)
   mock_home_repository.dart                      -- [DIHAPUS FASE 5] hanya dipakai test
 lib/features/history/data/
-  firebase_history_repository.dart               -- Firestore users/{uid}/scans
-  guest_history_repository.dart                  -- GuestProgressStore
-  sqflite_history_repository.dart                -- [DIHAPUS FASE 5]
+  firebase_history_repository.dart               -- Firestore users/{uid}/scans (+4 method agregasi)
+  guest_history_repository.dart                  -- GuestProgressStore (+4 method agregasi)
+  sqflite_history_repository.dart                -- [DIHAPUS FASE 5] TIDAK TER-ROUTING lagi (Opsi A)
 lib/features/history/presentation/
-  history_provider.dart                          -- routing repository + hook recompute post-scan
+  history_provider.dart                          -- routing (tamu/akun) + saveScanToHistory (PointsPolicy)
+                                                   + hook recompute post-scan + historyStatsProvider
 lib/features/gamification/presentation/
-  gamification_provider.dart                     -- routing repo + progressionServiceProvider
+  gamification_provider.dart                     -- routing repo + progressionServiceProvider + badges
+  user_progress_provider.dart                    -- [TIM] total poin untuk UI (base + scan + ledger)
+  mission_provider.dart                          -- [TIM] provider misi (harian/mingguan/klaim)
 lib/features/home/presentation/
-  home_provider.dart                             -- routing home repository
+  home_provider.dart                             -- routing home repository + poin UI (userProgress)
 lib/core/db/                                     -- [DIHAPUS FASE 5] app_database, seeds, users_repository, password_hasher
-[FASE 4] layar registrasi (dibuat tim)          -- dihubungkan ke FirebaseAuthRepository.register
 ```
 
-Interface `AuthRepository`, `HistoryRepository`, `GamificationRepository`,
-`HomeRepository` tidak berubah (`register` ditambahkan ke `AuthRepository` di Fase 4).
+Interface: `AuthRepository.register` (Fase 4) dan 4 method agregasi
+`HistoryRepository` (branch tim: `getBetween`, `countByWasteType`,
+`sumPointsEarned`, `hasScannedWasteTypeOn`) sudah diimplementasi di semua
+repo (Firebase, guest, SQLite, dan fake test).
 
 ## 7. Tahapan
 
@@ -180,7 +228,7 @@ Interface `AuthRepository`, `HistoryRepository`, `GamificationRepository`,
 | **1 – Fondasi DB lokal** | Schema v3, seed, auth SQLite, riwayat per-user | ✅ 2026-11-02 (peran berubah: jadi fondasi guest + reference) |
 | **2 – Fondasi Firebase** | Dependency Firebase, `Firebase.initializeApp`, `FirebaseAuthRepository` (login/sesi via uid, pesan error konsisten), `FirebaseHistoryRepository` + `GuestHistoryRepository` + `GuestProgressStore`, routing provider, test guest repository, `late final` fix | ✅ 2026-11-03 |
 | **3 – Gamifikasi cloud** | `reference_data` (level/badge/misi di kode), `progress_calculator` (fungsi murni + test), `ProgressionService.recomputeAll` (recompute total poin/streak/badge/misi, 1 batch), repo gamifikasi & home (Firebase + guest), routing provider, hook recompute post-scan, **auto-merge tamu→akun** | ✅ 2026-11-04 |
-| **4 – Integrasi registrasi** | Layar registrasi tim → `AuthRepository.register` + `users/{uid}` + auto-merge (menunggu push dari anggota tim) | ⏳ |
+| **4 – Integrasi registrasi** | Layar registrasi tim → `AuthRepository.register` + `users/{uid}` + auto-merge. `FirebaseAuthRepository.register` diimplementasi pasca-merge (validasi konsisten, `email-already-in-use` → 'Email sudah terdaftar', `_ensureUserDocument` + `_mergeGuestProgress`) | ✅ 2026-11-04 (pasca-merge) |
 | **5 – Bersihkan & uji** | Hapus SQLite (`lib/core/db/`, sqflite repo, `local_auth_repository`, dep `sqflite`+`crypto`), security rules Firestore, uji skenario (multi-user, tamu→akun, ganti perangkat), test dengan Firestore emulator | ⏳ |
 
 ## 8. Keamanan Firestore

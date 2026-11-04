@@ -9,6 +9,7 @@ import '../../../core/guest/guest_progress_store.dart';
 import '../../gamification/data/progression_service.dart';
 import '../domain/app_user.dart';
 import '../domain/auth_repository.dart';
+import '../domain/auth_validators.dart';
 
 /// Autentikasi berbasis Firebase (Auth + Firestore).
 ///
@@ -49,6 +50,67 @@ class FirebaseAuthRepository implements AuthRepository {
 
     // Auto-merge progres tamu ke akun (jika ada). Gagal merge tidak
     // membatalkan login: data tamu tetap di lokal, dicoba lagi login depan.
+    try {
+      await _mergeGuestProgress(firebaseUser.uid);
+    } catch (e) {
+      developer.log('Auto-merge progres tamu gagal: $e');
+    }
+
+    await _prefs.setBool(AppConstants.keyUserSession, true);
+    await _prefs.setBool(AppConstants.keyIsGuest, false);
+    await _prefs.setString(AppConstants.keyUserId, firebaseUser.uid);
+
+    return _toAppUser(firebaseUser, profile);
+  }
+
+  @override
+  Future<AppUser> register({
+    required String displayName,
+    required String email,
+    required String password,
+  }) async {
+    final name = displayName.trim();
+    final cleanEmail = email.trim().toLowerCase();
+
+    // Urutan & pesan validasi disamakan dengan versi lokal
+    // (LocalAuthRepository) agar pesan UI konsisten.
+    if (name.isEmpty) throw Exception('Nama wajib diisi');
+    if (!isValidEmail(cleanEmail)) throw Exception('Format email tidak valid');
+    if (password.length < AppConstants.minPasswordLength) {
+      throw Exception(
+        'Kata sandi minimal ${AppConstants.minPasswordLength} karakter',
+      );
+    }
+    // Email demo adalah akun sistem, tidak boleh didaftarkan ulang.
+    if (cleanEmail == AppConstants.demoEmail.trim().toLowerCase()) {
+      throw Exception('Email sudah terdaftar');
+    }
+
+    User firebaseUser;
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: cleanEmail,
+        password: password,
+      );
+      firebaseUser = cred.user!;
+    } on FirebaseAuthException catch (e) {
+      throw _registerException(e);
+    }
+
+    // Nama display di Firebase (best effort; display_name di Firestore
+    // tetap diisi eksplisit lewat _ensureUserDocument).
+    try {
+      await firebaseUser.updateDisplayName(name);
+    } catch (_) {
+      // Tidak fatal: profil Firestore memakai nama dari parameter.
+    }
+
+    final profile =
+        await _ensureUserDocument(firebaseUser, displayName: name);
+
+    // Auto-merge progres tamu ke akun (jika ada). Gagal merge tidak
+    // membatalkan registrasi: data tamu tetap di lokal, dicoba lagi
+    // saat login berikutnya.
     try {
       await _mergeGuestProgress(firebaseUser.uid);
     } catch (e) {
@@ -113,14 +175,18 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   /// Pastikan dokumen profil user ada (untuk user yang dibuat di luar app,
-  /// mis. lewat konsol Firebase).
-  Future<Map<String, dynamic>?> _ensureUserDocument(User user) async {
+  /// mis. lewat konsol Firebase). [displayName] diisi eksplisit saat
+  /// registrasi (display name Firebase kadang belum tersinkron).
+  Future<Map<String, dynamic>?> _ensureUserDocument(
+    User user, {
+    String? displayName,
+  }) async {
     final ref = _firestore.collection('users').doc(user.uid);
     final snap = await ref.get();
     if (snap.exists) return snap.data();
 
     final data = {
-      'display_name': _defaultDisplayName(user),
+      'display_name': displayName ?? _defaultDisplayName(user),
       'total_points': 0,
       'current_streak': 0,
       'best_streak': 0,
@@ -193,6 +259,22 @@ class FirebaseAuthRepository implements AuthRepository {
         return Exception('Koneksi terputus. Periksa koneksi internet Anda.');
       default:
         return Exception('Gagal masuk. Silakan coba lagi.');
+    }
+  }
+
+  /// Pemetaan error khusus registrasi (`createUserWithEmailAndPassword`).
+  Exception _registerException(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return Exception('Email sudah terdaftar');
+      case 'weak-password':
+        return Exception('Kata sandi terlalu lemah');
+      case 'too-many-requests':
+        return Exception('Terlalu banyak percobaan. Silakan coba lagi nanti.');
+      case 'network-request-failed':
+        return Exception('Koneksi terputus. Periksa koneksi internet Anda.');
+      default:
+        return Exception('Gagal mendaftar. Silakan coba lagi.');
     }
   }
 }

@@ -1,4 +1,5 @@
 import '../../../core/guest/guest_progress_store.dart';
+import '../../../core/waste/waste_types.dart';
 import '../../scan/domain/waste_category.dart';
 import '../domain/history_entry.dart';
 import '../domain/history_repository.dart';
@@ -84,5 +85,64 @@ class GuestHistoryRepository implements HistoryRepository {
       WasteCategory.anorganik:
           list.where((e) => e.category == WasteCategory.anorganik).length,
     };
+  }
+
+  @override
+  Future<List<HistoryEntry>> getBetween({
+    String? userId,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    if (userId != null && userId != 'guest_id') return const [];
+    // [start] inklusif, [end] eksklusif; terlama dulu (konsisten SQLite).
+    return _all
+        .where((e) =>
+            !e.createdAt.isBefore(start) && e.createdAt.isBefore(end))
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  @override
+  Future<Map<WasteType, int>> countByWasteType({String? userId}) async {
+    final list = (userId != null && userId != 'guest_id')
+        ? const <HistoryEntry>[]
+        : _all;
+    final counts = <WasteType, int>{};
+    for (final e in list) {
+      // Hanya hasil valid (is_uncertain=0) & jenis dikenal.
+      if (e.isUncertain) continue;
+      final type = e.wasteType;
+      if (type == null) continue;
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  @override
+  Future<int> sumPointsEarned({String? userId}) async {
+    final list = (userId != null && userId != 'guest_id')
+        ? const <HistoryEntry>[]
+        : _all;
+    var total = 0;
+    for (final e in list) {
+      total += e.pointsEarned;
+    }
+    return total;
+  }
+
+  @override
+  Future<bool> hasScannedWasteTypeOn({
+    String? userId,
+    required WasteType wasteType,
+    required DateTime day,
+  }) async {
+    if (userId != null && userId != 'guest_id') return false;
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return _all.any((e) =>
+        !e.isUncertain &&
+        e.wasteType == wasteType &&
+        !e.createdAt.isBefore(start) &&
+        e.createdAt.isBefore(end));
   }
 }

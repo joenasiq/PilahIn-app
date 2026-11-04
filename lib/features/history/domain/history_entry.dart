@@ -1,4 +1,3 @@
-import '../../../core/constants/app_constants.dart';
 import '../../../core/waste/waste_types.dart';
 import '../../scan/domain/waste_category.dart';
 
@@ -6,7 +5,6 @@ class HistoryEntry {
   final int? id;
   final String userId;
   final String scanKey;
-  final String userId;
   final WasteCategory? _storedCategory;
   final WasteType? wasteType;
   final double confidence;
@@ -27,7 +25,6 @@ class HistoryEntry {
     this.id,
     this.userId = 'guest_id',
     required this.scanKey,
-    this.userId = AppConstants.demoUserId,
     WasteCategory? category,
     this.wasteType,
     required this.confidence,
@@ -42,7 +39,6 @@ class HistoryEntry {
     int? id,
     String? userId,
     String? scanKey,
-    String? userId,
     WasteCategory? category,
     WasteType? wasteType,
     double? confidence,
@@ -56,7 +52,6 @@ class HistoryEntry {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       scanKey: scanKey ?? this.scanKey,
-      userId: userId ?? this.userId,
       category: category ?? _storedCategory,
       wasteType: wasteType ?? this.wasteType,
       confidence: confidence ?? this.confidence,
@@ -73,7 +68,6 @@ class HistoryEntry {
       'id': id,
       'user_id': userId,
       'scan_key': scanKey,
-      'user_id': userId,
       'category': category == WasteCategory.organik ? 'organik' : 'anorganik',
       'waste_type': wasteType?.labelKey,
       'confidence': confidence,
@@ -99,7 +93,6 @@ class HistoryEntry {
       id: map['id'] as int?,
       userId: map['user_id'] as String? ?? 'guest_id',
       scanKey: map['scan_key'] as String,
-      userId: (map['user_id'] as String?) ?? AppConstants.demoUserId,
       category: storedCategory,
       wasteType: wasteType,
       confidence: (map['confidence'] as num).toDouble(),

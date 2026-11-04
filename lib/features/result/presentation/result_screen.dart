@@ -13,8 +13,6 @@ import '../../gamification/domain/points_policy.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
 import 'widgets/eco_impact_card.dart';
-import 'widgets/point_reward_dialog.dart';
-import 'widgets/animated_reward_badge.dart';
 
 class ResultScreen extends ConsumerStatefulWidget {
   final String? imagePath;
