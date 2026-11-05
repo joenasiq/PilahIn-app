@@ -1,8 +1,17 @@
 # Rencana Penyimpanan Data PilahIn (Lokal + Firebase Cloud)
 
-> Status: **Fase 1–4 selesai** (2026-11-04). Fase 5 belum diimplementasikan.
+> Status: **Fase 1–5 selesai** (2026-11-05). Sisa tugas sebelum demo/sidang:
+> **deploy security rules** ke Firebase Console (deadline test mode: 2026-12-03)
+> + uji skenario perangkat (multi-user, tamu→akun, ganti perangkat).
 >
-> **Log perubahan**: 2026-11-04 (perbaikan pasca-merge) — merge branch `bgsa`
+> **Log perubahan**: 2026-11-05 — Fase 5 (pembersihan arsitektur lama): hapus
+> SQLite (`lib/core/db/` — app_database, seeds, users_repository,
+> password_hasher — + `sqflite_history_repository`) dan `local_auth_repository`
+> + test keduanya (auth lokal tidak dipakai lagi sejak Fase 2); dependency
+> `sqflite` + `path_provider` dikeluarkan dari pubspec (`crypto` tersisa sebagai
+> transitive); tambah `firebase/firestore.rules` (aturan final §8).
+> `flutter analyze` bersih.
+> 2026-11-04 (perbaikan pasca-merge) — merge branch `bgsa`
 > (PR #7) menimbulkan conflict dua arsitektur data; resolusi manual merusak
 > `history_entry.dart` (duplikat `userId`) dan memutus 3 implementasi interface
 > baru. Diperbaiki: (1) deduplikasi `history_entry.dart`; (2)
@@ -178,7 +187,6 @@ lib/core/guest/
 lib/features/auth/data/
   firebase_auth_repository.dart                  -- login/**register**/guest/logout/getCurrentUser
                                                    + _ensureUserDocument + _mergeGuestProgress
-  local_auth_repository.dart                     -- [DIHAPUS FASE 5] versi lokal (login + register)
 lib/features/auth/domain/
   auth_validators.dart                           -- isValidEmail dkk (dipakai register)
 lib/features/auth/presentation/
@@ -195,15 +203,14 @@ lib/features/gamification/data/
   guest_gamification_repository.dart             -- turunan dari GuestProgressStore
   points_ledger_service.dart                     -- [TIM] ledger poin lokal (daily/login/klaim)
   mission_service.dart                           -- [TIM] misi harian/mingguan dari riwayat + klaim
-  mock_gamification_repository.dart              -- [DIHAPUS FASE 5] hanya dipakai test
+  mock_gamification_repository.dart              -- test double (hanya dipakai test)
 lib/features/home/data/
   firebase_home_repository.dart                  -- HomeSummary dari Firestore (akun)
   guest_home_repository.dart                     -- HomeSummary turunan (tamu)
-  mock_home_repository.dart                      -- [DIHAPUS FASE 5] hanya dipakai test
+  mock_home_repository.dart                      -- test double (hanya dipakai test)
 lib/features/history/data/
   firebase_history_repository.dart               -- Firestore users/{uid}/scans (+4 method agregasi)
   guest_history_repository.dart                  -- GuestProgressStore (+4 method agregasi)
-  sqflite_history_repository.dart                -- [DIHAPUS FASE 5] TIDAK TER-ROUTING lagi (Opsi A)
 lib/features/history/presentation/
   history_provider.dart                          -- routing (tamu/akun) + saveScanToHistory (PointsPolicy)
                                                    + hook recompute post-scan + historyStatsProvider
@@ -213,13 +220,15 @@ lib/features/gamification/presentation/
   mission_provider.dart                          -- [TIM] provider misi (harian/mingguan/klaim)
 lib/features/home/presentation/
   home_provider.dart                             -- routing home repository + poin UI (userProgress)
-lib/core/db/                                     -- [DIHAPUS FASE 5] app_database, seeds, users_repository, password_hasher
+firebase/
+  firestore.rules                                -- security rules final (deploy via Console, §8)
 ```
 
 Interface: `AuthRepository.register` (Fase 4) dan 4 method agregasi
 `HistoryRepository` (branch tim: `getBetween`, `countByWasteType`,
 `sumPointsEarned`, `hasScannedWasteTypeOn`) sudah diimplementasi di semua
-repo (Firebase, guest, SQLite, dan fake test).
+repo yang ada (Firebase, guest, dan fake test). SQLite & auth lokal dihapus
+di Fase 5 — arsitektur sekarang **satu jalur**: tamu → lokal, akun → Firestore.
 
 ## 7. Tahapan
 
@@ -229,11 +238,14 @@ repo (Firebase, guest, SQLite, dan fake test).
 | **2 – Fondasi Firebase** | Dependency Firebase, `Firebase.initializeApp`, `FirebaseAuthRepository` (login/sesi via uid, pesan error konsisten), `FirebaseHistoryRepository` + `GuestHistoryRepository` + `GuestProgressStore`, routing provider, test guest repository, `late final` fix | ✅ 2026-11-03 |
 | **3 – Gamifikasi cloud** | `reference_data` (level/badge/misi di kode), `progress_calculator` (fungsi murni + test), `ProgressionService.recomputeAll` (recompute total poin/streak/badge/misi, 1 batch), repo gamifikasi & home (Firebase + guest), routing provider, hook recompute post-scan, **auto-merge tamu→akun** | ✅ 2026-11-04 |
 | **4 – Integrasi registrasi** | Layar registrasi tim → `AuthRepository.register` + `users/{uid}` + auto-merge. `FirebaseAuthRepository.register` diimplementasi pasca-merge (validasi konsisten, `email-already-in-use` → 'Email sudah terdaftar', `_ensureUserDocument` + `_mergeGuestProgress`) | ✅ 2026-11-04 (pasca-merge) |
-| **5 – Bersihkan & uji** | Hapus SQLite (`lib/core/db/`, sqflite repo, `local_auth_repository`, dep `sqflite`+`crypto`), security rules Firestore, uji skenario (multi-user, tamu→akun, ganti perangkat), test dengan Firestore emulator | ⏳ |
+| **5 – Bersihkan & uji** | Hapus SQLite + local auth (`lib/core/db/`, sqflite repo, `local_auth_repository`, 2 test terkait, dep `sqflite`+`path_provider`), `firebase/firestore.rules`. **Sisa di sisi user**: deploy rules ke Console (sebelum 2026-12-03) + uji skenario perangkat (multi-user, tamu→akun, ganti perangkat) + test emulator (terblokir di mesin ini, §9) | ✅ 2026-11-05 (kodingan) |
 
 ## 8. Keamanan Firestore
 
-Selama development: **test mode** (berlaku ~30 hari). Sebelum demo/sidang, ganti:
+Selama development: **test mode** (berlaku sampai **2026-12-03**). Rules final
+sudah ada di `firebase/firestore.rules`; **WAJIB deploy sebelum test mode habis**
+(Console → Firestore Database → Rules → paste isi file, atau
+`firebase deploy --only firestore:rules`):
 
 ```
 rules_version = '2';
@@ -260,4 +272,4 @@ service cloud.firestore {
   mengandung spasi (`C:\Users\H P\flutter`) sehingga build hook native asset
   (`objective_c`) gagal (`'C:\Users\H' is not recognized...`). Solusi: pindahkan Flutter
   ke path tanpa spasi. Test yang sudah ada memakai fake (tanpa Firebase) sehingga tetap
-  valid setelah bloker diperbaiki; test Firestore sungguhan via emulator (Fase 5).
+  valid setelah bloker diperbaiki; test Firestore sungguhan via emulator (sebelum demo).

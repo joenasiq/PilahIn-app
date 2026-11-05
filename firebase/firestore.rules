@@ -1,0 +1,23 @@
+// Security rules Firestore PilahIn (Fase 5).
+//
+// Model data: seluruh data user hidup di bawah `users/{uid}` (dokumen profil
+// + subcollection scans/badges/missions). Aturan: setiap user hanya boleh
+// membaca & menulis data miliknya sendiri (uid harus cocok dengan
+// user yang sedang login di Firebase Auth).
+//
+// CARA DEPLOY (WAJIB sebelum test mode habis, 2026-12-03):
+// 1. Firebase Console -> Firestore Database -> Rules -> paste isi file ini.
+//    (atau: `firebase deploy --only firestore:rules` jika pakai Firebase CLI)
+// 2. Pastikan Authentication Email/Password tetap aktif.
+//
+// Catatan: gambar TIDAK ada di Firestore (hanya path file lokal di field
+// image_path), jadi tidak ada rule tambahan untuk storage.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
