@@ -10,6 +10,11 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    // Jangan kompres model TFLite agar bisa di-memory-map saat runtime.
+    androidResources {
+        noCompress += listOf("tflite", "lite")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

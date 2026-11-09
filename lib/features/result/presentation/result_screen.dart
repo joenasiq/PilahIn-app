@@ -25,10 +25,13 @@ class ResultScreen extends ConsumerStatefulWidget {
 
 class _ResultScreenState extends ConsumerState<ResultScreen> {
   ScanPointResult? _pointResult;
+  int selectedObjectIndex = 0;
+  double? _imageAspect; // lebar / tinggi gambar asli
 
   @override
   void initState() {
     super.initState();
+    _loadImageAspect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.imagePath != null) {
         ref
@@ -38,12 +41,30 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     });
   }
 
+  void _loadImageAspect() {
+    final path = widget.imagePath;
+    if (path == null) return;
+    final stream = FileImage(File(path)).resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        final w = info.image.width.toDouble();
+        final h = info.image.height.toDouble();
+        stream.removeListener(listener);
+        if (mounted && h > 0) setState(() => _imageAspect = w / h);
+      },
+      onError: (_, _) => stream.removeListener(listener),
+    );
+    stream.addListener(listener);
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<ClassificationResult?>>(
       classificationControllerProvider,
       (previous, next) {
         if (next is AsyncData && next.value != null) {
+          setState(() => selectedObjectIndex = 0);
           ref
               .read(historyNotifierProvider.notifier)
               .saveScanToHistory(next.value!)
@@ -202,8 +223,184 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     );
   }
 
-  Widget _buildResultView(BuildContext context, ClassificationResult result) {
+  Widget _buildImageFallback() {
+    return Container(
+      height: 250,
+      color: Colors.grey[300],
+      child: const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+    );
+  }
+
+  Widget _buildImageWithBoxes(
+    List<ClassificationResult> detections,
+    int selectedIndex,
+  ) {
+    final file = File(widget.imagePath!);
+    final aspect = _imageAspect;
+
+    Widget decorate(Widget child) => Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(16), child: child),
+    );
+
+    // Ukuran gambar belum diketahui / gagal dibaca: tampilan lama.
+    if (aspect == null) {
+      return decorate(
+        Image.file(
+          file,
+          height: 250,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildImageFallback(),
+        ),
+      );
+    }
+
+    return decorate(
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final maxW = constraints.maxWidth;
+          const maxH = 360.0;
+          var w = maxW;
+          var h = w / aspect;
+          if (h > maxH) {
+            h = maxH;
+            w = h * aspect;
+          }
+          return Container(
+            width: double.infinity,
+            color: Colors.black,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: w,
+              height: h,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.file(
+                    file,
+                    fit: BoxFit.fill,
+                    errorBuilder: (context, error, stackTrace) =>
+                        _buildImageFallback(),
+                  ),
+                  // Kotak terpilih digambar terakhir agar badge-nya di atas.
+                  // Jika objek terbaik memiliki confidence < 0.15 (non-sampah),
+                  // jangan gambar kotak bounding box di atas foto.
+                  if (detections.isNotEmpty &&
+                      detections.first.confidence >= 0.15)
+                    for (final pass in [false, true])
+                      for (var i = 0; i < detections.length; i++)
+                        if (detections[i].boundingBox != null &&
+                            detections[i].confidence >= 0.15 &&
+                            (i == selectedIndex) == pass)
+                          _buildBox(detections[i], i, pass, w, h),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBox(
+    ClassificationResult d,
+    int index,
+    bool selected,
+    double w,
+    double h,
+  ) {
+    final box = d.boundingBox!;
+    // Fallback sangat tidak yakin (mis. foto bukan sampah): kotak oranye tipis.
+    final weak = d.confidence < 0.25;
+    return Positioned(
+      left: box.left * w,
+      top: box.top * h,
+      width: box.width * w,
+      height: box.height * h,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => selectedObjectIndex = index),
+        child: Container(
+          decoration: BoxDecoration(
+            color: weak
+                ? null
+                : (selected ? const Color(0xFF39FF14).withAlpha(36) : null),
+            border: Border.all(
+              color: weak
+                  ? Colors.orange.withAlpha(140)
+                  : (selected ? const Color(0xFF39FF14) : Colors.yellowAccent),
+              width: weak ? 1.2 : (selected ? 3.0 : 2.0),
+            ),
+          ),
+          alignment: Alignment.topLeft,
+          child: (selected && !weak)
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  color: const Color(0xFF39FF14),
+                  child: Text(
+                    '${d.wasteType.displayName} '
+                    '${(d.confidence * 100).toStringAsFixed(0)}%',
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+  Widget _buildObjectChips(
+    List<ClassificationResult> detections,
+    int selectedIndex,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var i = 0; i < detections.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(
+                  detections[i].confidence < 0.15
+                      ? 'Objek sampah belum terdeteksi jelas '
+                          '(${(detections[i].confidence * 100).toStringAsFixed(1)}%)'
+                      : '${i + 1}. ${detections[i].wasteType.displayName} '
+                          '(${(detections[i].confidence * 100).toStringAsFixed(1)}%)',
+                ),
+                selected: i == selectedIndex,
+                selectedColor: AppColors.primaryGreen.withAlpha(60),
+                onSelected: (_) => setState(() => selectedObjectIndex = i),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultView(BuildContext context, ClassificationResult primary) {
     final theme = Theme.of(context);
+    final detections = primary.detections;
+    final selectedIndex = selectedObjectIndex.clamp(0, detections.length - 1);
+    final result = detections[selectedIndex];
     final isOrganic = result.category == WasteCategory.organik;
 
     final categoryName = isOrganic ? 'Organik' : 'Anorganik';
@@ -220,39 +417,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Gambar
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.file(
-                File(widget.imagePath!),
-                height: 250,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 250,
-                  color: Colors.grey[300],
-                  child: const Icon(
-                    Icons.broken_image,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // Gambar + bounding box objek terdeteksi
+          _buildImageWithBoxes(detections, selectedIndex),
+          if (detections.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildObjectChips(detections, selectedIndex),
+          ],
           const SizedBox(height: 24),
-
           // Poin Pemindaian (Jika aktif) — poin aktual sesuai aturan
           if (MlConfig.showScanPoints) ...[
             _buildPointChip(),
@@ -342,9 +513,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                     Icon(result.wasteType.icon, size: 16, color: color),
                     const SizedBox(width: 6),
                     Text(
-                      result.isUncertain
-                          ? 'Mungkin: ${result.wasteType.displayName}'
-                          : result.wasteType.displayName,
+                      result.confidence < 0.15
+                          ? 'Belum terdeteksi jelas (Mungkin: ${result.wasteType.displayName})'
+                          : (result.isUncertain
+                              ? 'Mungkin: ${result.wasteType.displayName}'
+                              : result.wasteType.displayName),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
