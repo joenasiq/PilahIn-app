@@ -15,25 +15,31 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          sharedPreferencesProvider.overrideWithValue(prefs),
-        ],
-        child: const MaterialApp(
-          home: LoginScreen(),
-        ),
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: LoginScreen()),
       ),
     );
   }
 
   group('LoginScreen Widget Tests', () {
-    testWidgets('menampilkan pesan error jika form kosong saat disubmit', (tester) async {
+    testWidgets('menampilkan tautan daftar akun', (tester) async {
       await pumpLoginScreen(tester);
       await tester.pumpAndSettle();
-      
+
+      expect(find.text('Belum punya akun?'), findsOneWidget);
+      expect(find.text('Daftar'), findsOneWidget);
+    });
+
+    testWidgets('menampilkan pesan error jika form kosong saat disubmit', (
+      tester,
+    ) async {
+      await pumpLoginScreen(tester);
+      await tester.pumpAndSettle();
+
       await tester.ensureVisible(find.text('Masuk'));
       await tester.tap(find.text('Masuk'));
       await tester.pumpAndSettle();
-      
+
       expect(find.text('Email wajib diisi'), findsOneWidget);
       expect(find.text('Kata sandi wajib diisi'), findsOneWidget);
     });
@@ -41,25 +47,30 @@ void main() {
     testWidgets('menampilkan error format email salah', (tester) async {
       await pumpLoginScreen(tester);
       await tester.pumpAndSettle();
-      
+
       // Isi email salah
       await tester.enterText(find.byType(TextFormField).first, 'emailsalah');
       await tester.tap(find.byType(PrimaryButton));
       await tester.pumpAndSettle();
-      
+
       expect(find.text('Format email tidak valid'), findsOneWidget);
     });
 
-    testWidgets('menampilkan error password kurang dari 6 karakter', (tester) async {
+    testWidgets('menampilkan error password kurang dari 6 karakter', (
+      tester,
+    ) async {
       await pumpLoginScreen(tester);
       await tester.pumpAndSettle();
-      
+
       // Isi email benar, password kurang dari 6
-      await tester.enterText(find.byType(TextFormField).first, 'test@email.com');
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'test@email.com',
+      );
       await tester.enterText(find.byType(TextFormField).last, '12345');
       await tester.tap(find.byType(PrimaryButton));
       await tester.pumpAndSettle();
-      
+
       expect(find.text('Kata sandi minimal 6 karakter'), findsOneWidget);
     });
   });

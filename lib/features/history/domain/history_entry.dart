@@ -3,6 +3,7 @@ import '../../scan/domain/waste_category.dart';
 
 class HistoryEntry {
   final int? id;
+  final String userId;
   final String scanKey;
   final WasteCategory? _storedCategory;
   final WasteType? wasteType;
@@ -14,13 +15,15 @@ class HistoryEntry {
   final DateTime createdAt;
 
   /// Kategori diturunkan dari jenis; jika jenis null, pakai kolom kategori yang sudah tersimpan.
-  WasteCategory get category => wasteType?.category ?? _storedCategory ?? WasteCategory.anorganik;
+  WasteCategory get category =>
+      wasteType?.category ?? _storedCategory ?? WasteCategory.anorganik;
 
   /// Status bahaya diturunkan dari jenis sampah
   bool get isHazardous => wasteType?.isHazardous ?? false;
 
   HistoryEntry({
     this.id,
+    this.userId = 'guest_id',
     required this.scanKey,
     WasteCategory? category,
     this.wasteType,
@@ -34,6 +37,7 @@ class HistoryEntry {
 
   HistoryEntry copyWith({
     int? id,
+    String? userId,
     String? scanKey,
     WasteCategory? category,
     WasteType? wasteType,
@@ -46,6 +50,7 @@ class HistoryEntry {
   }) {
     return HistoryEntry(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       scanKey: scanKey ?? this.scanKey,
       category: category ?? _storedCategory,
       wasteType: wasteType ?? this.wasteType,
@@ -61,6 +66,7 @@ class HistoryEntry {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'scan_key': scanKey,
       'category': category == WasteCategory.organik ? 'organik' : 'anorganik',
       'waste_type': wasteType?.labelKey,
@@ -75,12 +81,17 @@ class HistoryEntry {
 
   factory HistoryEntry.fromMap(Map<String, dynamic> map) {
     final wasteTypeStr = map['waste_type'] as String?;
-    final wasteType = wasteTypeStr != null ? WasteType.fromLabelKey(wasteTypeStr) : null;
+    final wasteType = wasteTypeStr != null
+        ? WasteType.fromLabelKey(wasteTypeStr)
+        : null;
     final categoryStr = map['category'] as String?;
-    final storedCategory = categoryStr == 'organik' ? WasteCategory.organik : WasteCategory.anorganik;
+    final storedCategory = categoryStr == 'organik'
+        ? WasteCategory.organik
+        : WasteCategory.anorganik;
 
     return HistoryEntry(
       id: map['id'] as int?,
+      userId: map['user_id'] as String? ?? 'guest_id',
       scanKey: map['scan_key'] as String,
       category: storedCategory,
       wasteType: wasteType,

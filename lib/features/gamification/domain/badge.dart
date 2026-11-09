@@ -3,7 +3,7 @@ class AppBadge {
   final String nama;
   final String deskripsi;
   final String kategori; // organik/anorganik/streak/umum
-  final String iconKey; 
+  final String iconKey;
   final int progres;
   final int target;
   final String satuan;
@@ -24,4 +24,19 @@ class AppBadge {
   });
 
   bool get isOpen => progres >= target;
+
+  AppBadge copyWith({int? progres, DateTime? tanggalDiraih}) {
+    return AppBadge(
+      id: id,
+      nama: nama,
+      deskripsi: deskripsi,
+      kategori: kategori,
+      iconKey: iconKey,
+      progres: progres ?? this.progres,
+      target: target,
+      satuan: satuan,
+      tanggalDiraih: tanggalDiraih ?? this.tanggalDiraih,
+      hadiahPoin: hadiahPoin,
+    );
+  }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_text_field.dart';
@@ -33,10 +34,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     if (_formKey.currentState!.validate()) {
-      ref.read(authControllerProvider.notifier).login(
-            _emailController.text.trim(),
-            _passwordController.text,
-          );
+      ref
+          .read(authControllerProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text);
     }
   }
 
@@ -80,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 16),
                   // Judul
                   const Text(
                     'PilahIn',
@@ -95,13 +95,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const Text(
                     'Deteksi Sampah Organik & Anorganik',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textGrey,
-                    ),
+                    style: TextStyle(fontSize: 16, color: AppColors.textGrey),
                   ),
-                  const SizedBox(height: 48),
-                  
+                  const SizedBox(height: 24),
+
                   // Kartu Form
                   Card(
                     child: Padding(
@@ -122,7 +119,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               if (value == null || value.isEmpty) {
                                 return 'Email wajib diisi';
                               }
-                              if (!value.contains('@') || !value.contains('.')) {
+                              if (!value.contains('@') ||
+                                  !value.contains('.')) {
                                 return 'Format email tidak valid';
                               }
                               return null;
@@ -141,7 +139,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             },
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
                                 color: AppColors.textGrey,
                               ),
                               onPressed: () {
@@ -164,12 +164,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
-                  
+
                   // Pesan Error jika login gagal
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -177,7 +180,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -195,7 +202,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
 
                   const SizedBox(height: 24),
-                  
+
                   // Tombol Masuk
                   PrimaryButton(
                     text: 'Masuk',
@@ -203,7 +210,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: _login,
                   ),
                   const SizedBox(height: 16),
-                  
+
+                  // Tautan daftar akun baru
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Belum punya akun?',
+                          style: TextStyle(color: AppColors.textGrey),
+                        ),
+                        TextButton(
+                          onPressed: authState.isLoading
+                              ? null
+                              : () => context.push('/register'),
+                          child: const Text('Daftar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
                   // Tombol Tamu
                   Center(
                     child: TextButton(

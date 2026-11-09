@@ -22,4 +22,28 @@ class HomeSummary {
     required this.totalBadges,
     required this.dailyMissions,
   });
+
+  HomeSummary copyWith({
+    String? userName,
+    String? levelName,
+    int? level,
+    int? points,
+    int? pointsToNextLevel,
+    int? streakDays,
+    int? unlockedBadges,
+    int? totalBadges,
+    List<DailyMission>? dailyMissions,
+  }) {
+    return HomeSummary(
+      userName: userName ?? this.userName,
+      levelName: levelName ?? this.levelName,
+      level: level ?? this.level,
+      points: points ?? this.points,
+      pointsToNextLevel: pointsToNextLevel ?? this.pointsToNextLevel,
+      streakDays: streakDays ?? this.streakDays,
+      unlockedBadges: unlockedBadges ?? this.unlockedBadges,
+      totalBadges: totalBadges ?? this.totalBadges,
+      dailyMissions: dailyMissions ?? this.dailyMissions,
+    );
+  }
 }
