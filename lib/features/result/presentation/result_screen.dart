@@ -236,7 +236,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     int selectedIndex,
   ) {
     final file = File(widget.imagePath!);
-    final aspect = _imageAspect;
+    final aspect =
+        (detections.isNotEmpty ? detections.first.imageAspectRatio : null) ??
+        _imageAspect;
 
     Widget decorate(Widget child) => Container(
       decoration: BoxDecoration(

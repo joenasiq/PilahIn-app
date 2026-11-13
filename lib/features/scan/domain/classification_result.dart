@@ -17,6 +17,9 @@ class ClassificationResult {
   /// Path potongan gambar objek (opsional).
   final String? croppedImagePath;
 
+  /// Rasio aspek gambar asli (`width / height`) setelah koreksi rotasi EXIF.
+  final double? imageAspectRatio;
+
   final List<ClassificationResult>? _detections;
 
   /// Seluruh objek yang terdeteksi pada foto, diurutkan dari confidence
@@ -39,6 +42,7 @@ class ClassificationResult {
     required this.timestamp,
     this.boundingBox,
     this.croppedImagePath,
+    this.imageAspectRatio,
     List<ClassificationResult>? detections,
   }) : _detections = detections; // ignore: prefer_initializing_formals
 
@@ -52,6 +56,7 @@ class ClassificationResult {
       timestamp: timestamp,
       boundingBox: boundingBox,
       croppedImagePath: croppedImagePath,
+      imageAspectRatio: imageAspectRatio,
       detections: detections,
     );
   }
