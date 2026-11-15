@@ -298,11 +298,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                   // Jika objek terbaik memiliki confidence < 0.15 (non-sampah),
                   // jangan gambar kotak bounding box di atas foto.
                   if (detections.isNotEmpty &&
-                      detections.first.confidence >= 0.15)
+                      detections.first.confidence >= 0.20)
                     for (final pass in [false, true])
                       for (var i = 0; i < detections.length; i++)
                         if (detections[i].boundingBox != null &&
-                            detections[i].confidence >= 0.15 &&
+                            detections[i].confidence >= 0.20 &&
                             (i == selectedIndex) == pass)
                           _buildBox(detections[i], i, pass, w, h),
                 ],
@@ -382,7 +382,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
                 label: Text(
-                  detections[i].confidence < 0.15
+                  detections[i].confidence < 0.20
                       ? 'Objek sampah belum terdeteksi jelas '
                           '(${(detections[i].confidence * 100).toStringAsFixed(1)}%)'
                       : '${i + 1}. ${detections[i].wasteType.displayName} '

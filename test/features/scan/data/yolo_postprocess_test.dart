@@ -4,13 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pilahin_app/features/scan/data/yolo_waste_classifier.dart';
 
 void main() {
-  const neutral = ['a', 'b', 'c'];
-
   List<List<double>> blank(int anchors, int numClasses) => List.generate(
     4 + numClasses,
     (_) => List<double>.filled(anchors, 0),
   );
 
+  // Koordinat dalam piksel kanvas 640 (letterbox penuh, tanpa padding).
   void set(
     List<List<double>> o,
     int a,
@@ -18,209 +17,218 @@ void main() {
     double yc,
     double w,
     double h,
-    int cls,
-    double score,
+    Map<int, double> scores,
   ) {
     o[0][a] = xc;
     o[1][a] = yc;
     o[2][a] = w;
     o[3][a] = h;
-    o[4 + cls][a] = score;
+    scores.forEach((c, s) => o[4 + c][a] = s);
   }
 
-  group('YoloWasteClassifier.calibrate', () {
-    test('s < 0.15 tetap rendah (non-sampah seperti laptop 4.9% tetap 4.9%)', () {
+  group('calibrate', () {
+    test('skor < 0.25 tetap apa adanya (tidak yakin)', () {
       expect(YoloWasteClassifier.calibrate(0.049), closeTo(0.049, 1e-9));
-      expect(YoloWasteClassifier.calibrate(0.14), closeTo(0.14, 1e-9));
+      expect(YoloWasteClassifier.calibrate(0.24), lessThan(0.60));
     });
-
-    test('0.15 <= s < 0.18 dipetakan linear ke 0.30..0.58 (isUncertain = true)', () {
-      expect(YoloWasteClassifier.calibrate(0.15), closeTo(0.30, 1e-9));
-      expect(YoloWasteClassifier.calibrate(0.165), closeTo(0.44, 1e-6));
-      expect(YoloWasteClassifier.calibrate(0.179), lessThan(0.60));
-    });
-
-    test('s >= 0.18 dipetakan ke 0.62..0.96 (objek ke-1 & ke-2 valid yakin)', () {
-      expect(YoloWasteClassifier.calibrate(0.18), closeTo(0.62, 1e-9));
-      expect(YoloWasteClassifier.calibrate(0.35), greaterThanOrEqualTo(0.62));
+    test('skor >= 0.25 dipetakan ke 0.62..0.96', () {
+      expect(YoloWasteClassifier.calibrate(0.25), closeTo(0.62, 1e-9));
       expect(YoloWasteClassifier.calibrate(0.95), closeTo(0.96, 1e-9));
     });
   });
 
-  group('YoloWasteClassifier.postprocess', () {
-    test('anti-bias clothes: rival (paper/plastic) >= 45% skor clothes memenangkan anchor', () {
-      const labels = ['clothes', 'paper'];
+  group('extractCandidates', () {
+    test('un-letterbox menghapus padding dan menskalakan ke gambar asli', () {
+      const labels = ['paper', 'plastic'];
       final o = blank(1, 2);
-      o[0][0] = 320;
-      o[1][0] = 200;
-      o[2][0] = 200;
-      o[3][0] = 180;
-      o[4 + 0][0] = 0.80; // clothes * 0.22 = 0.176
-      o[4 + 1][0] = 0.28; // paper >= 45% * 0.176
-      final r = YoloWasteClassifier.postprocess(
+      // Gambar 360x640 -> padX=140. Objek di tengah gambar.
+      set(o, 0, 320, 320, 180, 320, {0: 0.8});
+      final r = YoloWasteClassifier.extractCandidates(
+        o,
+        labels: labels,
+        numAnchors: 1,
+        padX: 140,
+        newWidth: 360,
+        newHeight: 640,
+      );
+      final b = r.candidates.single.box;
+      expect(b.left, closeTo(0.25, 1e-9));
+      expect(b.right, closeTo(0.75, 1e-9));
+      expect(b.top, closeTo(0.25, 1e-9));
+    });
+
+    test('paper menang atas cardboard bila paper >= 0.40 * cardboard', () {
+      const labels = ['cardboard', 'paper'];
+      final o = blank(1, 2);
+      set(o, 0, 320, 320, 200, 200, {0: 0.60, 1: 0.30});
+      final r = YoloWasteClassifier.extractCandidates(
         o,
         labels: labels,
         numAnchors: 1,
       );
-      expect(r.single.classIndex, 1); // paper menang
-      expect(r.single.score, greaterThanOrEqualTo(0.62));
+      expect(r.candidates.single.classIndex, 1);
     });
 
-    test('Transparency Recovery (Tahap B): botol plastik bening (raw 0.7% vs juara kedua 0.2%) dengan konsensus cluster dipulihkan menjadi yakin', () {
+    test('clothes dikalikan 0.75 sehingga kalah dari plastic yang dekat', () {
+      const labels = ['clothes', 'plastic'];
+      final o = blank(1, 2);
+      set(o, 0, 320, 320, 200, 200, {0: 0.30, 1: 0.27});
+      final r = YoloWasteClassifier.extractCandidates(
+        o,
+        labels: labels,
+        numAnchors: 1,
+      );
+      expect(r.candidates.single.classIndex, 1);
+    });
+
+    test('kelas transparan dominan dengan skor rendah diangkat 0.26..0.65', () {
       const labels = ['plastic', 'paper', 'cardboard'];
-      final o = blank(4, 3);
-      // 3 anchor beririsan pada botol plastik bening: plastic=0.007 (0.7%), runner-up=0.002 (0.2%)
-      for (var a = 0; a < 3; a++) {
-        set(o, a, 320 + a * 4.0, 320 + a * 4.0, 180, 260, 0, 0.007);
-        o[4 + 1][a] = 0.002;
-        o[4 + 2][a] = 0.001;
-      }
-      // 1 anchor background acak
-      set(o, 3, 100, 100, 80, 80, 1, 0.003);
-      o[4 + 2][3] = 0.0025;
-
-      final r = YoloWasteClassifier.postprocess(
+      final o = blank(1, 3);
+      set(o, 0, 320, 320, 200, 400, {0: 0.05, 1: 0.005, 2: 0.004});
+      final r = YoloWasteClassifier.extractCandidates(
         o,
         labels: labels,
-        numAnchors: 4,
+        numAnchors: 1,
       );
-      expect(r.length, 1);
-      expect(r.single.classIndex, 0); // plastic
-      expect(r.single.score, greaterThanOrEqualTo(0.62));
+      final d = r.candidates.single;
+      expect(d.classIndex, 0);
+      expect(d.score, inInclusiveRange(0.26, 0.65));
     });
 
-    test('Inner-Core Priority (Masalah #3): kertas di atas meja kayu coklat memenangkan paper dan menekan kotak luar cardboard', () {
-      const labels = ['paper', 'cardboard'];
-      final o = blank(2, 2);
-      // Anchor 0: kotak luar lebih besar yang ikut menelan pinggiran meja kayu -> menebak cardboard (0.68)
-      set(o, 0, 320, 320, 340, 360, 1, 0.68);
-      // Anchor 1: kotak inti ketat tepat di atas kertas putih -> menebak paper (0.48)
-      set(o, 1, 320, 320, 240, 260, 0, 0.48);
-
-      final r = YoloWasteClassifier.postprocess(
+    test('kelas padat dengan skor rendah (paper) tidak diangkat; distribusi datar ditolak', () {
+      const labels = ['plastic', 'paper', 'cardboard'];
+      final o = blank(2, 3);
+      set(o, 0, 200, 320, 200, 200, {1: 0.05, 0: 0.004});
+      set(o, 1, 450, 320, 200, 200, {0: 0.05, 1: 0.04, 2: 0.04});
+      final r = YoloWasteClassifier.extractCandidates(
         o,
         labels: labels,
         numAnchors: 2,
       );
-      expect(r.length, 1);
-      expect(r.single.classIndex, 0); // paper menang melawan cardboard
-      expect(r.single.score, greaterThanOrEqualTo(0.62));
+      expect(r.candidates, isEmpty);
+      expect(r.best, isNotNull);
     });
 
-    test('Aturan 1: satu objek fisik tidak boleh menghasilkan 2 label bertumpuk (Kertas + Kardus)', () {
-      const labels = ['paper', 'cardboard'];
-      final o = blank(2, 2);
-      // Anchor 0: Kertas di sisi kiri (skor tinggi)
-      set(o, 0, 180, 320, 220, 280, 0, 0.82);
-      // Anchor 1: Kardus terkandung di objek kertas yang sama (>58% containment / pusat dekat)
-      set(o, 1, 190, 330, 160, 200, 1, 0.55);
-
-      final r = YoloWasteClassifier.postprocess(
+    test('kotak raksasa (> 0.78 luas) dipenalti 0.50', () {
+      const labels = ['paper'];
+      final o = blank(1, 1);
+      set(o, 0, 320, 320, 620, 620, {0: 0.60});
+      final r = YoloWasteClassifier.extractCandidates(
         o,
         labels: labels,
-        numAnchors: 2,
+        numAnchors: 1,
       );
-      expect(r.length, 1);
-      expect(r.single.classIndex, 0);
+      expect(r.candidates.single.score, closeTo(0.30, 1e-9));
     });
 
-    test('Aturan 2: kotak lebar (boxWidth > 0.68) yang menelan 2 objek dipenalti & 2 objek kiri-kanan bertahan', () {
+    test('kotak terlalu kecil (< 0.04) diabaikan', () {
+      const labels = ['paper'];
+      final o = blank(1, 1);
+      set(o, 0, 320, 320, 10, 10, {0: 0.9});
+      final r = YoloWasteClassifier.extractCandidates(
+        o,
+        labels: labels,
+        numAnchors: 1,
+      );
+      expect(r.candidates, isEmpty);
+    });
+  });
+
+  group('mergeSameClass & nms', () {
+    YoloDetection det(Rect box, double s, int c) =>
+        YoloDetection(box, s, c, rawScore: s);
+
+    test('dua kotak kelas sama bersentuhan vertikal digabung jadi satu', () {
+      final r = YoloWasteClassifier.mergeSameClass([
+        det(const Rect.fromLTRB(0.4, 0.1, 0.6, 0.45), 0.5, 0),
+        det(const Rect.fromLTRB(0.4, 0.46, 0.6, 0.8), 0.4, 0),
+      ]);
+      expect(r.length, 1);
+      expect(r.single.box.top, closeTo(0.1, 1e-9));
+      expect(r.single.box.bottom, closeTo(0.8, 1e-9));
+      expect(r.single.score, closeTo(0.5, 1e-9));
+    });
+
+    test('merge ditolak bila luas gabungan > 0.65', () {
+      final r = YoloWasteClassifier.mergeSameClass([
+        det(const Rect.fromLTRB(0.0, 0.0, 0.7, 0.7), 0.5, 0),
+        det(const Rect.fromLTRB(0.3, 0.3, 1.0, 1.0), 0.4, 0),
+      ]);
+      expect(r.length, 2);
+    });
+
+    test('Kardus di dalam kotak Kertas disuppress (1 benda = 1 kotak)', () {
+      final r = YoloWasteClassifier.nms([
+        det(const Rect.fromLTRB(0.1, 0.3, 0.45, 0.7), 0.9, 1),
+        det(const Rect.fromLTRB(0.15, 0.35, 0.40, 0.65), 0.7, 0),
+      ]);
+      expect(r.length, 1);
+      expect(r.single.classIndex, 1);
+    });
+
+    test('Kertas kiri dan Plastik kanan dua-duanya dipertahankan', () {
+      final r = YoloWasteClassifier.nms([
+        det(const Rect.fromLTRB(0.05, 0.3, 0.35, 0.7), 0.9, 1),
+        det(const Rect.fromLTRB(0.60, 0.2, 0.90, 0.8), 0.5, 0),
+      ]);
+      expect(r.length, 2);
+    });
+  });
+
+  group('postprocess end-to-end', () {
+    test('dua objek berdampingan menghasilkan dua objek yakin', () {
       const labels = ['plastic', 'paper'];
-      final o = blank(3, 2);
-      // Anchor 0: kotak lebar plastic membungkus hampir seluruh layar (width=520/640=0.8125)
-      set(o, 0, 320, 320, 520, 320, 0, 0.70);
-      // Anchor 1: kertas ketat di sisi kiri
-      set(o, 1, 150, 320, 180, 260, 1, 0.75);
-      // Anchor 2: botol plastik ketat di sisi kanan
-      set(o, 2, 480, 320, 160, 280, 0, 0.32);
-
+      final o = blank(2, 2);
+      set(o, 0, 130, 320, 190, 280, {1: 0.85});
+      set(o, 1, 480, 320, 180, 360, {0: 0.40});
       final r = YoloWasteClassifier.postprocess(
         o,
         labels: labels,
-        numAnchors: 3,
+        numAnchors: 2,
       );
       expect(r.length, 2);
-      expect(r[0].classIndex, 1); // Kertas di kiri
-      expect(r[1].classIndex, 0); // Plastik di kanan
-      expect(r[1].box.width, lessThan(0.55));
+      expect(r[0].classIndex, 1);
+      expect(r[1].classIndex, 0);
       expect(r[1].score, greaterThanOrEqualTo(0.62));
     });
 
-    test('same-class box merging: botol plastik terbelah (41.2% & 37.7%) menyatu jadi 1 kotak', () {
-      const labels = ['plastic', 'paper'];
-      final o = blank(2, 2);
-      set(o, 0, 320, 220, 140, 220, 0, 0.412);
-      set(o, 1, 320, 360, 140, 220, 0, 0.377);
-      final r = YoloWasteClassifier.postprocess(
-        o,
-        labels: labels,
-        numAnchors: 2,
-      );
-      expect(r.length, 1);
-      expect(r.single.classIndex, 0);
-      expect(r.single.rawScore, closeTo(0.633676, 1e-5));
-      expect(r.single.score, greaterThanOrEqualTo(0.62));
-      expect(r.single.box.top, closeTo((220 - 110) / 640, 1e-9));
-      expect(r.single.box.bottom, closeTo((360 + 110) / 640, 1e-9));
-    });
-
-    test('Aturan 3 & 4: complementaryZones dan pickComplementary menemukan objek ke-2 di sisi berlawanan', () {
-      const primaryLeft = Rect.fromLTRB(0.08, 0.25, 0.44, 0.75);
-      final zonesRight = YoloWasteClassifier.complementaryZones(
-        primaryLeft,
-        0.85,
-      );
-      expect(zonesRight.length, 1);
-      expect(zonesRight.single.left, closeTo(0.42, 1e-9));
-      expect(zonesRight.single.right, closeTo(1.0, 1e-9));
-
-      const bottleRight = YoloDetection(
-        Rect.fromLTRB(0.55, 0.22, 0.86, 0.78),
-        0.24,
-        1,
-        rawScore: 0.24,
-      );
-      const overlappingCardboard = YoloDetection(
-        Rect.fromLTRB(0.10, 0.28, 0.42, 0.72),
-        0.60,
-        2,
-        rawScore: 0.60,
-      );
-      final picked = YoloWasteClassifier.pickComplementary(
-        primaryLeft,
-        const [overlappingCardboard, bottleRight],
-      );
-      expect(picked, isNotNull);
-      expect(picked!.classIndex, 1);
-      expect(YoloWasteClassifier.calibrate(picked.score), greaterThanOrEqualTo(0.62));
-    });
-
-    test('roi sub-region mapping memetakan koordinat crop kembali ke gambar utuh', () {
-      const labels = ['paper', 'plastic'];
+    test('tanpa kandidat: fallback tetap rendah apa adanya', () {
+      const labels = ['a', 'b'];
       final o = blank(1, 2);
-      set(o, 0, 320, 320, 320, 320, 0, 0.60);
+      set(o, 0, 320, 320, 100, 100, {1: 0.049});
       final r = YoloWasteClassifier.postprocess(
         o,
         labels: labels,
         numAnchors: 1,
-        roi: const Rect.fromLTWH(0.20, 0.20, 0.60, 0.60),
       );
-      expect(r.single.box.left, closeTo(0.20 + 0.25 * 0.60, 1e-9));
-      expect(r.single.box.right, closeTo(0.20 + 0.75 * 0.60, 1e-9));
-    });
-
-    test('fallback: skor asli rendah < 0.15 tanpa konsensus cluster dipertahankan apa adanya', () {
-      final o = blank(2, 3);
-      set(o, 0, 320, 320, 100, 100, 1, 0.049);
-      set(o, 1, 100, 100, 50, 50, 2, 0.02);
-      final r = YoloWasteClassifier.postprocess(
-        o,
-        labels: neutral,
-        numAnchors: 2,
-      );
-      expect(r.length, 1);
       expect(r.single.classIndex, 1);
       expect(r.single.score, closeTo(0.049, 1e-9));
+    });
+  });
+
+  group('unoccupiedZone', () {
+    test('objek di kiri -> zona kanan di luar primaryBox dengan margin 0.04', () {
+      final z = YoloWasteClassifier.unoccupiedZone(
+        const Rect.fromLTRB(0.05, 0.3, 0.40, 0.8),
+      );
+      expect(z, isNotNull);
+      expect(z!.left, closeTo(0.44, 1e-9));
+      expect(z.right, 1.0);
+    });
+    test('objek di kanan -> zona kiri', () {
+      final z = YoloWasteClassifier.unoccupiedZone(
+        const Rect.fromLTRB(0.60, 0.1, 0.95, 0.9),
+      );
+      expect(z!.right, closeTo(0.56, 1e-9));
+      expect(z.left, 0.0);
+    });
+    test('objek besar yang mengisi layar -> tidak ada zona', () {
+      expect(
+        YoloWasteClassifier.unoccupiedZone(
+          const Rect.fromLTRB(0.1, 0.1, 0.9, 0.9),
+        ),
+        isNull,
+      );
     });
   });
 }
