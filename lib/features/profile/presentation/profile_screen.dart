@@ -167,6 +167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     return Container(
       width: double.infinity,
+      alignment: Alignment.center,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -405,7 +406,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             spacing: 8,
             children: [
               Text(
-                'Scan $scanPoints • Login $loginPoints • Hari ini $pointsToday/$dailyLimit',
+                '• Login: $loginPoints • Poin Hari ini: $pointsToday/$dailyLimit',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
               GestureDetector(

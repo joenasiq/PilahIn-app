@@ -89,22 +89,6 @@ class StreakCard extends StatelessWidget {
                               fontSize: 17,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEA580C).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'HOT',
-                              style: TextStyle(
-                                color: Color(0xFFC2410C),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 3),

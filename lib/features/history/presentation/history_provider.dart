@@ -261,47 +261,30 @@ class HistoryNotifier extends Notifier<HistoryState> {
     }
   }
 
+  /// Menyimpan hasil pemindaian ke riwayat.
+  ///
+  /// Multi-objek: setiap objek valid (`!isUncertain`) disimpan sebagai
+  /// baris riwayat terpisah, dan poin dihitung per item. Bila tidak ada objek
+  /// yang valid, hasil utama (tidak yakin) tetap disimpan satu kali seperti
+  /// perilaku sebelumnya.
   Future<ScanPointResult> saveScanToHistory(ClassificationResult result) async {
     try {
-      // Idempotent key to avoid duplicate entries for the exact same scan result
-      final scanKey =
-          '${result.imagePath}_${result.timestamp.millisecondsSinceEpoch}';
+      final valid = result.detections.where((d) => !d.isUncertain).toList();
+      final items = valid.isEmpty ? [result] : valid;
 
-      final ledger = PointsLedgerService(ref.read(sharedPreferencesProvider));
-      final alreadyScannedToday = await _repository.hasScannedWasteTypeOn(
-        userId: _userId,
-        wasteType: result.wasteType,
-        day: result.timestamp,
-      );
-      final pointsEarnedToday = await ledger.getDailyPoints(
-        _userId,
-        date: result.timestamp,
-      );
-
-      final pointResult = PointsPolicy.compute(
-        isUncertain: result.isUncertain,
-        alreadyScannedToday: alreadyScannedToday,
-        pointsEarnedToday: pointsEarnedToday,
-        enabled: MlConfig.showScanPoints,
-      );
-
-      final entry = HistoryEntry(
-        scanKey: scanKey,
-        userId: _userId,
-        wasteType: result.wasteType,
-        confidence: result.confidence,
-        isUncertain: result.isUncertain,
-        pointsEarned: pointResult.points,
-        imagePath: result.imagePath,
-        createdAt: result.timestamp,
-      );
-
-      await _repository.add(entry);
-      await ledger.addDailyPoints(
-        _userId,
-        pointResult.points,
-        date: result.timestamp,
-      );
+      ScanPointResult? first;
+      var totalPoints = 0;
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        // Idempotent key: item pertama memakai format lama agar tidak
+        // menduplikasi riwayat lama; item berikutnya diberi sufiks indeks.
+        final baseKey =
+            '${item.imagePath}_${item.timestamp.millisecondsSinceEpoch}';
+        final scanKey = i == 0 ? baseKey : '${baseKey}_$i';
+        final pointResult = await _saveItem(item, scanKey);
+        first ??= pointResult;
+        totalPoints += pointResult.points;
+      }
 
       final progression = ref.read(progressionServiceProvider);
       if (progression != null) {
@@ -312,16 +295,62 @@ class HistoryNotifier extends Notifier<HistoryState> {
         }
       }
 
-      await refresh(); // Refresh list if needed
-      return pointResult;
+      await refresh();
+      return ScanPointResult(
+        points: totalPoints,
+        reason: first!.reason,
+        pointsEarnedToday: first.pointsEarnedToday,
+        dailyLimit: first.dailyLimit,
+      );
     } catch (e) {
       // Kegagalan menyimpan tidak boleh mengganggu layar Hasil
       developer.log('Riwayat gagal disimpan: $e');
       throw Exception('Riwayat gagal disimpan');
     }
   }
-}
 
+  Future<ScanPointResult> _saveItem(
+    ClassificationResult item,
+    String scanKey,
+  ) async {
+    final ledger = PointsLedgerService(ref.read(sharedPreferencesProvider));
+    final alreadyScannedToday = await _repository.hasScannedWasteTypeOn(
+      userId: _userId,
+      wasteType: item.wasteType,
+      day: item.timestamp,
+    );
+    final pointsEarnedToday = await ledger.getDailyPoints(
+      _userId,
+      date: item.timestamp,
+    );
+
+    final pointResult = PointsPolicy.compute(
+      isUncertain: item.isUncertain,
+      alreadyScannedToday: alreadyScannedToday,
+      pointsEarnedToday: pointsEarnedToday,
+      enabled: MlConfig.showScanPoints,
+    );
+
+    final entry = HistoryEntry(
+      scanKey: scanKey,
+      userId: _userId,
+      wasteType: item.wasteType,
+      confidence: item.confidence,
+      isUncertain: item.isUncertain,
+      pointsEarned: pointResult.points,
+      imagePath: item.croppedImagePath ?? item.imagePath,
+      createdAt: item.timestamp,
+    );
+
+    await _repository.add(entry);
+    await ledger.addDailyPoints(
+      _userId,
+      pointResult.points,
+      date: item.timestamp,
+    );
+    return pointResult;
+  }
+}
 final historyNotifierProvider = NotifierProvider<HistoryNotifier, HistoryState>(
   HistoryNotifier.new,
 );

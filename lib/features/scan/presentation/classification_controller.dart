@@ -2,12 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/classification_result.dart';
 import '../domain/waste_classifier.dart';
-import '../data/mock_waste_classifier.dart';
+import '../data/yolo_waste_classifier.dart';
 
 // Provider untuk implementasi WasteClassifier.
-// Saat ini mengembalikan MockWasteClassifier. Ganti di sini bila TFLite sudah siap.
+// Memakai YoloWasteClassifier (YOLOv8n TFLite). MockWasteClassifier tetap
+// tersedia untuk test lewat override provider ini.
 final wasteClassifierProvider = Provider<WasteClassifier>((ref) {
-  return MockWasteClassifier();
+  final classifier = YoloWasteClassifier();
+  ref.onDispose(classifier.dispose);
+  return classifier;
 });
 
 class ClassificationController extends AsyncNotifier<ClassificationResult?> {
