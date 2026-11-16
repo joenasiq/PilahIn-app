@@ -112,10 +112,14 @@ class ScanController extends Notifier<ScanState> {
     state = state.copyWith(status: ScanStatus.takingPicture);
     try {
       final path = await _cameraService.takePicture();
-      // Matikan flash setelah foto jika menyala (opsional, tapi baik untuk UX)
+      // Matikan flash setelah foto jika menyala
       if (state.isFlashOn) {
-        await toggleFlash();
+        await _cameraService.setFlash(false);
       }
+      state = state.copyWith(
+        status: ScanStatus.ready,
+        isFlashOn: false, 
+      );
       state = state.copyWith(status: ScanStatus.ready);
       return path;
     } catch (e) {

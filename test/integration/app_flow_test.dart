@@ -1,3 +1,5 @@
+import 'package:pilahin_app/features/scan/data/mock_waste_classifier.dart';
+import 'package:pilahin_app/features/scan/presentation/classification_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,6 +45,9 @@ class FakeScanService implements ScanCameraService {
   Widget getPreviewWidget() {
     return const SizedBox();
   }
+
+  @override
+  double? get previewAspectRatio => null;
 }
 
 void main() {
@@ -70,6 +75,7 @@ void main() {
           historyRepositoryProvider.overrideWithValue(fakeHistoryRepo),
           gamificationRepositoryProvider.overrideWithValue(fakeGamificationRepo),
           homeRepositoryProvider.overrideWithValue(MockHomeRepository(fakeGamificationRepo)),
+          wasteClassifierProvider.overrideWithValue(MockWasteClassifier()),
           progressionServiceProvider.overrideWithValue(null),
           authRepositoryProvider.overrideWithValue(fakeAuthRepo),
         ],

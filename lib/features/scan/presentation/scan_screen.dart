@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/main_wrapper.dart';
 import '../../../core/theme/app_colors.dart';
+import '../data/scan_image_cropper.dart';
 import 'scan_controller.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
@@ -100,14 +101,18 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     WidgetRef ref,
     ScanState state,
   ) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(24),
+    return Center(
+      child: AspectRatio(
+        aspectRatio: scanAspectRatio,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(24),
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: _buildPreviewContent(context, ref, state),
+        ),
       ),
-      clipBehavior: Clip.hardEdge,
-      child: _buildPreviewContent(context, ref, state),
     );
   }
 
@@ -185,14 +190,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       case ScanStatus.ready:
       case ScanStatus.takingPicture:
         final cameraService = ref.read(scanCameraServiceProvider);
+        // Rasio anak HARUS rasio asli preview kamera, bukan 3:4. Dengan begitu
+        // FittedBox hanya memotong (cover) tanpa meregangkan gambar.
+        final previewAspect =
+            cameraService.previewAspectRatio ?? scanAspectRatio;
         return Stack(
           fit: StackFit.expand,
           children: [
             FittedBox(
               fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
               child: SizedBox(
-                width: 3, // Dummy aspect ratio, FitBox cover will scale it
-                height: 4,
+                width: 1000,
+                height: 1000 / previewAspect,
                 child: cameraService.getPreviewWidget(),
               ),
             ),
