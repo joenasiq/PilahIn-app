@@ -3,10 +3,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/waste/waste_types.dart';
+import '../../auth/domain/app_user.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../gamification/domain/reference_data.dart';
 import '../../gamification/domain/user_progress.dart';
 import '../../gamification/presentation/user_progress_provider.dart';
 import '../../gamification/presentation/widgets/points_info_sheet.dart';
@@ -14,6 +17,7 @@ import '../../home/presentation/home_provider.dart';
 import '../../history/domain/history_stats.dart';
 import '../../history/presentation/history_provider.dart';
 import '../../scan/domain/waste_category.dart';
+import '../data/avatar_service.dart';
 
 class DonutData {
   final int organic;
@@ -37,6 +41,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _animation;
+  bool _isUploadingPhoto = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -159,11 +165,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  Widget _buildHeader(ThemeData theme, dynamic user, dynamic summary) {
+  Widget _buildHeader(ThemeData theme, AppUser? user, dynamic summary) {
     final name = user?.displayName ?? 'Tamu';
     final email = user?.email ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     final isGuest = user?.isGuest ?? true;
+    final level = (summary?.level as int?) ?? 1;
+    final isAvatarUnlocked = level >= AppConstants.avatarUnlockLevel;
 
     return Container(
       width: double.infinity,
@@ -218,40 +226,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             child: Column(
               children: [
-                // Avatar Modern
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFBBF24), Color(0xFF34D399)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 38,
-                    backgroundColor: Colors.white,
-                    child: isGuest
-                        ? const Icon(
-                            Icons.person,
-                            size: 40,
-                            color: Color(0xFF059669),
-                          )
-                        : Text(
-                            initial,
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF065F46),
-                            ),
-                          ),
-                  ),
+                // Avatar Modern (bisa diketuk untuk ganti foto bila login
+                // dan sudah mencapai level minimum)
+                _buildAvatar(
+                  user,
+                  isGuest: isGuest,
+                  initial: initial,
+                  isUnlocked: isAvatarUnlocked,
+                  level: level,
+                  points: (summary?.points as int?) ?? 0,
                 ),
                 const SizedBox(height: 12),
 
@@ -335,6 +318,385 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
+  Widget _buildAvatar(AppUser? user, {
+    required bool isGuest,
+    required String initial,
+    required bool isUnlocked,
+    required int level,
+    required int points,
+  }) {
+    final photoUrl = user?.photoUrl?.trim();
+    final hasPhoto = !isGuest && photoUrl != null && photoUrl.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () => _onAvatarTap(
+        isGuest: isGuest,
+        isUnlocked: isUnlocked,
+        level: level,
+        points: points,
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFBBF24), Color(0xFF34D399)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 38,
+              backgroundColor: Colors.white,
+              child: ClipOval(
+                child: SizedBox(
+                  width: 76,
+                  height: 76,
+                  child: _isUploadingPhoto
+                      ? const Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: Color(0xFF059669),
+                            ),
+                          ),
+                        )
+                      : hasPhoto
+                      ? Image.network(
+                          photoUrl,
+                          key: const ValueKey('profile-avatar-photo'),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              _buildAvatarPlaceholder(isGuest, initial),
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : _buildAvatarPlaceholder(isGuest, initial),
+                ),
+              ),
+            ),
+          ),
+          if (!isGuest)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: isUnlocked
+                      ? const Color(0xFF059669)
+                      : const Color(0xFF64748B),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Icon(
+                  isUnlocked ? Icons.photo_camera_rounded : Icons.lock_rounded,
+                  size: 13,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarPlaceholder(bool isGuest, String initial) {
+    if (isGuest) {
+      return const Icon(Icons.person, size: 40, color: Color(0xFF059669));
+    }
+    return Center(
+      child: Text(
+        initial,
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF065F46),
+        ),
+      ),
+    );
+  }
+
+  void _onAvatarTap({
+    required bool isGuest,
+    required bool isUnlocked,
+    required int level,
+    required int points,
+  }) {
+    if (isGuest) {
+      _showSnack('Masuk ke akun untuk menambahkan foto profil');
+      return;
+    }
+    if (_isUploadingPhoto) return;
+    if (!isUnlocked) {
+      _showAvatarLockedDialog(level: level, points: points);
+      return;
+    }
+    _showAvatarOptionsSheet();
+  }
+
+  /// Ambang poin level minimum untuk membuka foto profil.
+  LevelInfo get _avatarUnlockLevelInfo => kLevels.firstWhere(
+    (lvl) => lvl.level == AppConstants.avatarUnlockLevel,
+    orElse: () => kLevels.last,
+  );
+
+  void _showAvatarLockedDialog({required int level, required int points}) {
+    final target = _avatarUnlockLevelInfo;
+    final remaining = target.minPoints - points;
+    final progress = (points / target.minPoints).clamp(0.0, 1.0);
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_rounded, color: Color(0xFF64748B)),
+            SizedBox(width: 8),
+            Text(
+              'Foto Profil Terkunci',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Kumpulkan ${target.minPoints} poin untuk mencapai '
+              'Level ${target.level} (${target.name}) dan membuka foto profil.',
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: const Color(0xFFE2E8F0),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFF059669)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$points / ${target.minPoints} poin'
+              '${remaining > 0 ? ' • kurang $remaining poin' : ''}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Level kamu sekarang: Level $level',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Mengerti',
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              try {
+                context.push('/profile/misi');
+              } catch (_) {}
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Lihat Misi',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAvatarOptionsSheet() {
+    final user = ref.read(authControllerProvider).value;
+    final hasPhoto = (user?.photoUrl ?? '').isNotEmpty;
+
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Foto Profil',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded,
+                  color: Color(0xFF059669)),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAvatar(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.photo_camera_rounded, color: Color(0xFF059669)),
+              title: const Text('Ambil dari Kamera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAvatar(ImageSource.camera);
+              },
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: Color(0xFFDC2626)),
+                title: const Text(
+                  'Hapus Foto',
+                  style: TextStyle(color: Color(0xFFDC2626)),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _removeAvatar();
+                },
+              ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Batal',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAvatar(ImageSource source) async {
+    XFile? picked;
+    try {
+      picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 90,
+      );
+    } catch (_) {
+      _showSnack('Tidak dapat membuka kamera/galeri');
+      return;
+    }
+    if (picked == null) return;
+    await _uploadAvatar(picked.path);
+  }
+
+  Future<void> _uploadAvatar(String filePath) async {
+    final user = ref.read(authControllerProvider).value;
+    if (user == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final url = await ref
+          .read(avatarServiceProvider)
+          .upload(userId: user.id, filePath: filePath);
+      await ref.read(authControllerProvider.notifier).updatePhotoUrl(url);
+      _showSnack('Foto profil diperbarui');
+    } catch (e) {
+      _showSnack(
+        e.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    final user = ref.read(authControllerProvider).value;
+    if (user == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      await ref.read(avatarServiceProvider).delete(user.id);
+      await ref.read(authControllerProvider.notifier).updatePhotoUrl(null);
+      _showSnack('Foto profil dihapus');
+    } catch (e) {
+      _showSnack(
+        e.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isError ? const Color(0xFFDC2626) : null,
+      ),
+    );
+  }
+
   Widget _buildStatsRow(
     dynamic summary,
     AsyncValue<UserProgress> progressAsync,
@@ -406,7 +768,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             spacing: 8,
             children: [
               Text(
-                '• Login: $loginPoints • Poin Hari ini: $pointsToday/$dailyLimit',
+                'Scan $scanPoints • Login $loginPoints • Hari ini $pointsToday/$dailyLimit',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
               GestureDetector(

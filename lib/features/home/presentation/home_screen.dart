@@ -6,6 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../gamification/presentation/mission_provider.dart';
 
 import 'home_provider.dart';
+import 'widgets/badge_showcase.dart';
 import 'widgets/level_card.dart';
 import 'widgets/mission_card.dart';
 import 'widgets/quick_action_button.dart';
@@ -62,6 +63,8 @@ class HomeScreen extends ConsumerWidget {
                 if (AppConstants.gamificationEnabled) ...[
                   const SizedBox(height: 20),
                   StreakCard(streakDays: summary.streakDays),
+                  const SizedBox(height: 20),
+                  const BadgeShowcase(),
                   const SizedBox(height: 22),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

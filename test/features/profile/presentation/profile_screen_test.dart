@@ -9,13 +9,45 @@ import 'package:pilahin_app/features/auth/presentation/auth_controller.dart';
 import 'package:pilahin_app/features/history/domain/history_entry.dart';
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
 import 'package:pilahin_app/features/home/presentation/home_provider.dart';
-import 'package:pilahin_app/features/home/data/mock_home_repository.dart';
-import 'package:pilahin_app/features/gamification/data/mock_gamification_repository.dart';
+import 'package:pilahin_app/features/home/data/home_repository.dart';
+import 'package:pilahin_app/features/home/domain/home_summary.dart';
+import 'package:pilahin_app/features/gamification/domain/reference_data.dart';
 import 'package:pilahin_app/features/profile/presentation/profile_screen.dart';
 import 'package:pilahin_app/features/scan/domain/waste_category.dart';
 import 'package:pilahin_app/features/auth/domain/app_user.dart';
 
 import '../../history/helpers/fake_history_repository.dart';
+
+/// Home repository palsu dengan level yang bisa diatur, agar aturan
+/// pembukaan foto profil (Level >= 2) bisa diuji.
+class FakeHomeRepository implements HomeRepository {
+  FakeHomeRepository({this.level = 1});
+
+  final int level;
+
+  @override
+  Future<HomeSummary> getHomeSummary({
+    required String userName,
+    required bool isDemoOrGuest,
+  }) async {
+    final info = kLevels.firstWhere(
+      (lvl) => lvl.level == level,
+      orElse: () => kLevels.first,
+    );
+    return HomeSummary(
+      userName: userName,
+      levelName: info.name,
+      level: info.level,
+      points: info.minPoints,
+      pointsToNextLevel: (nextLevelMinPoints(info.minPoints) ?? 0) -
+          info.minPoints,
+      streakDays: 0,
+      unlockedBadges: 0,
+      totalBadges: kBadges.length,
+      dailyMissions: const [],
+    );
+  }
+}
 
 class MockAuthController extends AuthController {
   final AppUser? mockUser;
@@ -45,6 +77,8 @@ void main() {
   Future<Widget> createWidgetUnderTest({
     required FakeHistoryRepository repo,
     bool isGuest = false,
+    String? photoUrl,
+    int level = 3,
   }) async {
     SharedPreferences.setMockInitialValues({
       AppConstants.keyIsGuest: isGuest,
@@ -61,17 +95,17 @@ void main() {
         ),
         isDemoOrGuestProvider.overrideWithValue(isGuest),
         homeRepositoryProvider.overrideWithValue(
-          MockHomeRepository(MockGamificationRepository()),
+          FakeHomeRepository(level: level),
         ),
         authControllerProvider.overrideWith(
           () => MockAuthController(
             isGuest
                 ? AppUser.guest()
-                : const AppUser(
+                : AppUser(
                     id: '1',
                     email: 'test@polinema.ac.id',
                     displayName: 'Kelompok Baiq',
-                    isGuest: false,
+                    photoUrl: photoUrl,
                   ),
           ),
         ),
@@ -101,6 +135,7 @@ void main() {
     // Add 2 organic, 1 anorganic
     await repo.add(
       HistoryEntry(
+        userId: AppConstants.demoUserId,
         scanKey: '1',
         category: WasteCategory.organik,
         confidence: 1,
@@ -111,6 +146,7 @@ void main() {
     );
     await repo.add(
       HistoryEntry(
+        userId: AppConstants.demoUserId,
         scanKey: '2',
         category: WasteCategory.organik,
         confidence: 1,
@@ -121,6 +157,7 @@ void main() {
     );
     await repo.add(
       HistoryEntry(
+        userId: AppConstants.demoUserId,
         scanKey: '3',
         category: WasteCategory.anorganik,
         confidence: 1,
@@ -170,6 +207,7 @@ void main() {
       final repo = FakeHistoryRepository();
       await repo.add(
         HistoryEntry(
+          userId: AppConstants.demoUserId,
           scanKey: '1',
           wasteType: WasteType.biological,
           confidence: 1,
@@ -180,6 +218,7 @@ void main() {
       );
       await repo.add(
         HistoryEntry(
+          userId: AppConstants.demoUserId,
           scanKey: '2',
           wasteType: WasteType.biological,
           confidence: 1,
@@ -190,6 +229,7 @@ void main() {
       );
       await repo.add(
         HistoryEntry(
+          userId: AppConstants.demoUserId,
           scanKey: '3',
           wasteType: WasteType.cardboard,
           confidence: 1,
@@ -220,4 +260,121 @@ void main() {
       expect(find.text('Scan 30 • Login 0 • Hari ini 0/150'), findsOneWidget);
     },
   );
+
+  testWidgets('Akun login: avatar bisa diketuk untuk opsi foto profil', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: false),
+    );
+    await tester.pumpAndSettle();
+
+    // Badge kamera hanya tampil untuk akun yang sudah login.
+    expect(find.byIcon(Icons.photo_camera_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.photo_camera_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Foto Profil'), findsOneWidget);
+    expect(find.text('Pilih dari Galeri'), findsOneWidget);
+    expect(find.text('Ambil dari Kamera'), findsOneWidget);
+    // Belum ada foto -> opsi hapus tidak ditampilkan.
+    expect(find.text('Hapus Foto'), findsNothing);
+
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Foto Profil'), findsNothing);
+  });
+
+  testWidgets('Akun login dengan foto menampilkan gambar & opsi hapus', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(
+        repo: repo,
+        isGuest: false,
+        photoUrl: 'https://example.com/avatar.jpg',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('profile-avatar-photo')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byIcon(Icons.photo_camera_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Hapus Foto'), findsOneWidget);
+  });
+
+  testWidgets('Tamu: mengetuk avatar hanya menampilkan pesan masuk', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: true),
+    );
+    await tester.pumpAndSettle();
+
+    // Tamu tidak mendapat tombol ganti foto.
+    expect(find.byIcon(Icons.photo_camera_rounded), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.person));
+    await tester.pump();
+
+    expect(
+      find.text('Masuk ke akun untuk menambahkan foto profil'),
+      findsOneWidget,
+    );
+    expect(find.text('Foto Profil'), findsNothing);
+  });
+
+  testWidgets('Level 1: foto profil terkunci dan picker tidak terbuka', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: false, level: 1),
+    );
+    await tester.pumpAndSettle();
+
+    // Badge gembok menggantikan ikon kamera.
+    expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.photo_camera_rounded), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.lock_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Foto Profil Terkunci'), findsOneWidget);
+    expect(
+      find.textContaining('Level 2 (Juru Kompos)'),
+      findsOneWidget,
+    );
+    expect(find.text('Lihat Misi'), findsOneWidget);
+    // Sheet opsi foto tidak boleh muncul.
+    expect(find.text('Pilih dari Galeri'), findsNothing);
+    expect(find.text('Ambil dari Kamera'), findsNothing);
+
+    await tester.tap(find.text('Mengerti'));
+    await tester.pumpAndSettle();
+    expect(find.text('Foto Profil Terkunci'), findsNothing);
+  });
+
+  testWidgets('Level 2: foto profil terbuka', (WidgetTester tester) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: false, level: 2),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.photo_camera_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.photo_camera_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Pilih dari Galeri'), findsOneWidget);
+  });
 }

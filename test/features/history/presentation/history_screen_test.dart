@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:pilahin_app/core/constants/app_constants.dart';
 import 'package:pilahin_app/core/waste/waste_types.dart';
+import 'package:pilahin_app/features/auth/presentation/auth_controller.dart';
 import 'package:pilahin_app/features/history/domain/history_entry.dart';
 import 'package:pilahin_app/features/history/presentation/history_provider.dart';
 import 'package:pilahin_app/features/history/presentation/history_screen.dart';
@@ -17,7 +19,11 @@ void main() {
 
   Widget createWidgetUnderTest(FakeHistoryRepository repo) {
     return ProviderScope(
-      overrides: [historyRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        historyRepositoryProvider.overrideWithValue(repo),
+        // Fixture memakai userId default ('guest_id').
+        currentUserIdProvider.overrideWithValue(AppConstants.guestUserId),
+      ],
       child: const MaterialApp(home: HistoryScreen()),
     );
   }

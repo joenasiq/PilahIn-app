@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/badge.dart';
+import '../badge_colors.dart';
+import '../badge_icons.dart';
 
 class BadgeDetailSheet extends StatelessWidget {
   final AppBadge badge;
@@ -20,45 +22,13 @@ class BadgeDetailSheet extends StatelessWidget {
     );
   }
 
-  IconData _getIcon(String key) {
-    switch (key) {
-      case 'eco':
-        return Icons.eco;
-      case 'star':
-        return Icons.star;
-      case 'local_fire_department':
-        return Icons.local_fire_department;
-      case 'water_drop':
-        return Icons.water_drop;
-      case 'article':
-        return Icons.article;
-      case 'public':
-        return Icons.public;
-      case 'compost':
-        return Icons.eco_outlined;
-      case 'recycling':
-        return Icons.recycling;
-      case 'wine_bar':
-        return Icons.wine_bar;
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'workspace_premium':
-        return Icons.workspace_premium;
-      case 'shield':
-        return Icons.shield;
-      case 'spa':
-        return Icons.spa;
-      case 'language':
-        return Icons.language;
-      default:
-        return Icons.emoji_events;
-    }
-  }
+  IconData _getIcon(String key) => badgeIconFor(key);
 
   @override
   Widget build(BuildContext context) {
     final isOpen = badge.isOpen;
     final pct = (badge.progres / badge.target).clamp(0.0, 1.0);
+    final colors = badgeColorFor(badge.id);
 
     return Container(
       decoration: const BoxDecoration(
@@ -86,15 +56,31 @@ class BadgeDetailSheet extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isOpen ? Colors.green.shade50 : Colors.grey.shade200,
                 shape: BoxShape.circle,
+                border: isOpen
+                    ? Border.all(color: const Color(0xFFFCD34D), width: 3)
+                    : null,
               ),
-              child: Icon(
-                isOpen ? _getIcon(badge.iconKey) : Icons.lock,
-                color: isOpen ? Colors.green : Colors.grey,
-                size: 64,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: isOpen
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [colors.start, colors.end],
+                        )
+                      : null,
+                  color: isOpen ? null : Colors.grey.shade200,
+                ),
+                child: Icon(
+                  isOpen ? _getIcon(badge.iconKey) : Icons.lock,
+                  color: isOpen ? Colors.white : Colors.grey,
+                  size: 64,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -107,7 +93,7 @@ class BadgeDetailSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: isOpen ? Colors.green : Colors.grey.shade400,
+                color: isOpen ? colors.end : Colors.grey.shade400,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(

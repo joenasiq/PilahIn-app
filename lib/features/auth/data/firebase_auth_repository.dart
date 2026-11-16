@@ -147,6 +147,38 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AppUser> updatePhotoUrl(String? photoUrl) async {
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser == null) {
+      throw Exception('Sesi berakhir. Silakan masuk kembali.');
+    }
+
+    final ref = _firestore.collection('users').doc(firebaseUser.uid);
+    try {
+      await ref.set({
+        'photo_url': photoUrl,
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      developer.log('Gagal menyimpan foto profil: $e');
+      throw Exception('Gagal menyimpan foto profil. Periksa koneksi internet Anda.');
+    }
+
+    Map<String, dynamic>? profile;
+    try {
+      final snap = await ref.get();
+      if (snap.exists) profile = snap.data();
+    } catch (_) {
+      // Offline: tetap kembalikan user dengan URL yang baru saja disimpan.
+    }
+
+    return _toAppUser(firebaseUser, {
+      ...?profile,
+      'photo_url': photoUrl,
+    });
+  }
+
+  @override
   Future<AppUser?> getCurrentUser() async {
     final hasSession = _prefs.getBool(AppConstants.keyUserSession) ?? false;
     if (!hasSession) return null;
@@ -187,6 +219,7 @@ class FirebaseAuthRepository implements AuthRepository {
 
     final data = {
       'display_name': displayName ?? _defaultDisplayName(user),
+      'photo_url': null,
       'total_points': 0,
       'current_streak': 0,
       'best_streak': 0,
@@ -236,12 +269,16 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   AppUser _toAppUser(User user, Map<String, dynamic>? profile) {
+    final photoUrl = profile?['photo_url'] as String?;
     return AppUser(
       id: user.uid,
       email: user.email ?? '',
       displayName:
           (profile?['display_name'] as String?) ?? _defaultDisplayName(user),
       isGuest: false,
+      photoUrl: (photoUrl != null && photoUrl.trim().isNotEmpty)
+          ? photoUrl
+          : null,
     );
   }
 
