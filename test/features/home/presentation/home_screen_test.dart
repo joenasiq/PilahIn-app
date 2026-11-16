@@ -28,6 +28,8 @@ class _MockCameraService implements ScanCameraService {
   Future<void> setFlash(bool isFlashOn) async {}
   @override
   Widget getPreviewWidget() => const SizedBox();
+  @override
+  double? get previewAspectRatio => null;
 }
 
 class _MockGalleryService implements GalleryPickerService {

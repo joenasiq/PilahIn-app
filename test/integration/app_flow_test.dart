@@ -45,6 +45,9 @@ class FakeScanService implements ScanCameraService {
   Widget getPreviewWidget() {
     return const SizedBox();
   }
+
+  @override
+  double? get previewAspectRatio => null;
 }
 
 void main() {

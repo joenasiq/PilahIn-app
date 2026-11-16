@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../scan/presentation/classification_controller.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
+import '../../scan/data/scan_image_cropper.dart';
 import '../../../core/constants/ml_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../gamification/domain/points_policy.dart';
@@ -271,7 +272,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       LayoutBuilder(
         builder: (context, constraints) {
           final maxW = constraints.maxWidth;
-          const maxH = 360.0;
+          // Foto sudah 3:4; batas tinggi mengikuti lebar agar mengisi penuh.
+          final maxH = maxW / scanAspectRatio;
           var w = maxW;
           var h = w / aspect;
           if (h > maxH) {
@@ -290,7 +292,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 children: [
                   Image.file(
                     file,
-                    fit: BoxFit.fill,
+                    fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
                         _buildImageFallback(),
                   ),
