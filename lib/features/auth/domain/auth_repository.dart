@@ -14,7 +14,7 @@ abstract class AuthRepository {
   Future<void> logout();
   Future<AppUser?> getCurrentUser();
 
-  /// Menyimpan URL foto profil akun aktif. [photoUrl] null berarti
+  /// Menyimpan penanda foto profil akun aktif. [photoUrl] null berarti
   /// menghapus foto profil.
   Future<AppUser> updatePhotoUrl(String? photoUrl);
 }

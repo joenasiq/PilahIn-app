@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pilahin_app/core/constants/app_constants.dart';
@@ -12,6 +15,8 @@ import 'package:pilahin_app/features/home/presentation/home_provider.dart';
 import 'package:pilahin_app/features/home/data/home_repository.dart';
 import 'package:pilahin_app/features/home/domain/home_summary.dart';
 import 'package:pilahin_app/features/gamification/domain/reference_data.dart';
+import 'package:pilahin_app/features/profile/data/avatar_service.dart';
+import 'package:pilahin_app/features/profile/presentation/avatar_photo_viewer.dart';
 import 'package:pilahin_app/features/profile/presentation/profile_screen.dart';
 import 'package:pilahin_app/features/scan/domain/waste_category.dart';
 import 'package:pilahin_app/features/auth/domain/app_user.dart';
@@ -79,6 +84,8 @@ void main() {
     bool isGuest = false,
     String? photoUrl,
     int level = 3,
+    Uint8List? avatarBytes,
+    bool overrideAvatarBytes = true,
   }) async {
     SharedPreferences.setMockInitialValues({
       AppConstants.keyIsGuest: isGuest,
@@ -97,6 +104,8 @@ void main() {
         homeRepositoryProvider.overrideWithValue(
           FakeHomeRepository(level: level),
         ),
+        if (overrideAvatarBytes)
+          avatarBytesProvider.overrideWith((ref, key) async => avatarBytes),
         authControllerProvider.overrideWith(
           () => MockAuthController(
             isGuest
@@ -308,6 +317,150 @@ void main() {
     await tester.tap(find.byIcon(Icons.photo_camera_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Hapus Foto'), findsOneWidget);
+  });
+
+  testWidgets('Foto dari Firestore (penanda fs:) dimuat lewat byte gambar', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    final image = img.Image(width: 8, height: 8);
+    img.fill(image, color: img.ColorRgb8(16, 185, 129));
+    final bytes = Uint8List.fromList(img.encodePng(image));
+
+    await tester.pumpWidget(
+      await createWidgetUnderTest(
+        repo: repo,
+        isGuest: false,
+        photoUrl: 'fs:1700000000000',
+        avatarBytes: bytes,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Byte dari provider dipakai, bukan Image.network.
+    expect(find.byKey(const ValueKey('profile-avatar-photo')), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+  });
+
+  testWidgets('Penanda fs: tanpa data menampilkan inisial', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(
+        repo: repo,
+        isGuest: false,
+        photoUrl: 'fs:1700000000000',
+        avatarBytes: null,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('profile-avatar-photo')), findsNothing);
+    expect(find.text('K'), findsOneWidget); // inisial "Kelompok Baiq"
+  });
+
+  testWidgets('Foto profil bisa dibuka ukuran penuh saat avatar diketuk', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    final image = img.Image(width: 8, height: 8);
+    img.fill(image, color: img.ColorRgb8(5, 150, 105));
+    final bytes = Uint8List.fromList(img.encodePng(image));
+
+    await tester.pumpWidget(
+      await createWidgetUnderTest(
+        repo: repo,
+        isGuest: false,
+        photoUrl: 'fs:1700000000001',
+        avatarBytes: bytes,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-avatar-photo')));
+    await tester.pumpAndSettle();
+
+    // Viewer terbuka dengan tombol ganti foto.
+    expect(find.byType(AvatarPhotoViewer), findsOneWidget);
+    expect(find.text('Ganti Foto'), findsOneWidget);
+    // Foto dibingkai bulat.
+    expect(find.byType(ClipOval), findsWidgets);
+
+    // Tombol tutup mengembalikan ke layar profil.
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(AvatarPhotoViewer), findsNothing);
+  });
+
+  testWidgets('Tombol Ganti Foto di viewer membuka menu foto', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    final image = img.Image(width: 8, height: 8);
+    img.fill(image, color: img.ColorRgb8(16, 185, 129));
+    final bytes = Uint8List.fromList(img.encodePng(image));
+
+    await tester.pumpWidget(
+      await createWidgetUnderTest(
+        repo: repo,
+        isGuest: false,
+        photoUrl: 'fs:1700000000002',
+        avatarBytes: bytes,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-avatar-photo')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ganti Foto'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pilih dari Galeri'), findsOneWidget);
+    expect(find.text('Hapus Foto'), findsOneWidget);
+  });
+
+  testWidgets('Avatar tanpa foto tetap membuka menu, bukan viewer', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    await tester.pumpWidget(
+      await createWidgetUnderTest(repo: repo, isGuest: false),
+    );
+    await tester.pumpAndSettle();
+
+    // Ketuk inisial avatar (belum ada foto).
+    await tester.tap(find.text('K'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AvatarPhotoViewer), findsNothing);
+    expect(find.text('Pilih dari Galeri'), findsOneWidget);
+  });
+
+  testWidgets('Level 1: avatar berfoto tidak membuka viewer', (
+    WidgetTester tester,
+  ) async {
+    final repo = FakeHistoryRepository();
+    final image = img.Image(width: 8, height: 8);
+    img.fill(image, color: img.ColorRgb8(16, 185, 129));
+    final bytes = Uint8List.fromList(img.encodePng(image));
+
+    await tester.pumpWidget(
+      await createWidgetUnderTest(
+        repo: repo,
+        isGuest: false,
+        level: 1,
+        photoUrl: 'fs:1700000000003',
+        avatarBytes: bytes,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-avatar-photo')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AvatarPhotoViewer), findsNothing);
+    expect(find.text('Foto Profil Terkunci'), findsOneWidget);
   });
 
   testWidgets('Tamu: mengetuk avatar hanya menampilkan pesan masuk', (

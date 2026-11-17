@@ -4,7 +4,11 @@ class AppUser {
   final String displayName;
   final bool isGuest;
 
-  /// URL foto profil di Firebase Storage (null bila belum diatur).
+  /// Penanda versi foto profil (bukan URL).
+  ///
+  /// Format `fs:<epochMillis>` untuk foto yang disimpan sebagai base64 di
+  /// Firestore (`users/{uid}/meta/avatar`). Nilai http:// lama tetap
+  /// didukung untuk kompatibilitas.
   final String? photoUrl;
 
   const AppUser({

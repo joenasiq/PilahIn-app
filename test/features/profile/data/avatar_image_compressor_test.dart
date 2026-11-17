@@ -68,4 +68,28 @@ void main() {
 
     expect(result, equals(raw));
   });
+
+  test('compressInBackground memberi hasil sama dengan compress', () async {
+    final file = await writeImage(1600, 900);
+    const compressor = AvatarImageCompressor();
+
+    final background = await compressor.compressInBackground(file);
+    final direct = await compressor.compress(file);
+    final decoded = img.decodeImage(background);
+
+    expect(decoded, isNotNull);
+    expect(decoded!.width, 512);
+    expect(background, equals(direct));
+  });
+
+  test('kualitas lebih rendah menghasilkan byte lebih kecil', () async {
+    final file = await writeImage(1200, 1200);
+    const compressor = AvatarImageCompressor();
+
+    final high = await compressor.compressInBackground(file, quality: 85);
+    final low = await compressor.compressInBackground(file, quality: 40);
+
+    expect(img.decodeImage(low)!.width, 512);
+    expect(low.length, lessThan(high.length));
+  });
 }

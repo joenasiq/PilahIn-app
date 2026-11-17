@@ -155,13 +155,18 @@ class FirebaseAuthRepository implements AuthRepository {
 
     final ref = _firestore.collection('users').doc(firebaseUser.uid);
     try {
-      await ref.set({
-        'photo_url': photoUrl,
-        'updated_at': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await ref
+          .set({
+            'photo_url': photoUrl,
+            'updated_at': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 20));
     } catch (e) {
       developer.log('Gagal menyimpan foto profil: $e');
-      throw Exception('Gagal menyimpan foto profil. Periksa koneksi internet Anda.');
+      throw Exception(
+        'Foto sudah tersimpan, tetapi gagal dicatat ke profil. '
+        'Periksa koneksi internet Anda.',
+      );
     }
 
     Map<String, dynamic>? profile;

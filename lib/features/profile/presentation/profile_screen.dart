@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +18,10 @@ import '../../home/presentation/home_provider.dart';
 import '../../history/domain/history_stats.dart';
 import '../../history/presentation/history_provider.dart';
 import '../../scan/domain/waste_category.dart';
+import '../data/avatar_cropper.dart';
 import '../data/avatar_service.dart';
+import 'avatar_crop_screen.dart';
+import 'avatar_photo_viewer.dart';
 
 class DonutData {
   final int organic;
@@ -42,6 +46,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   late AnimationController _animationController;
   late Animation<double> _animation;
   bool _isUploadingPhoto = false;
+
+  /// Progress unggah 0..1, null bila tidak sedang mengunggah.
+  double? _uploadProgress;
+
+  /// Byte foto hasil crop yang belum berhasil diunggah, dipakai untuk
+  /// "Coba lagi" tanpa perlu memilih & memotong foto ulang.
+  Uint8List? _pendingAvatarBytes;
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
@@ -334,6 +345,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         isUnlocked: isUnlocked,
         level: level,
         points: points,
+        hasPhoto: hasPhoto,
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -361,36 +373,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                   width: 76,
                   height: 76,
                   child: _isUploadingPhoto
-                      ? const Center(
+                      ? Center(
                           child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Color(0xFF059669),
+                            width: 40,
+                            height: 40,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                  // Tahap kompresi tidak punya progres nyata,
+                                  // jadi tampilkan spinner berputar dulu.
+                                  value: (_uploadProgress ?? 0) > 0
+                                      ? _uploadProgress
+                                      : null,
+                                  strokeWidth: 2.4,
+                                  color: const Color(0xFF059669),
+                                  backgroundColor: const Color(0xFFD1FAE5),
+                                ),
+                                if ((_uploadProgress ?? 0) > 0)
+                                  Text(
+                                    '${((_uploadProgress ?? 0) * 100).round()}%',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         )
                       : hasPhoto
-                      ? Image.network(
-                          photoUrl,
-                          key: const ValueKey('profile-avatar-photo'),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              _buildAvatarPlaceholder(isGuest, initial),
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return const Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                  color: Color(0xFF059669),
-                                ),
-                              ),
-                            );
-                          },
+                      ? _buildAvatarImage(
+                          user: user,
+                          photoUrl: photoUrl,
+                          isGuest: isGuest,
+                          initial: initial,
                         )
                       : _buildAvatarPlaceholder(isGuest, initial),
                 ),
@@ -399,26 +417,99 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
           ),
           if (!isGuest)
             Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: isUnlocked
-                      ? const Color(0xFF059669)
-                      : const Color(0xFF64748B),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+              right: -10,
+              bottom: -10,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _onAvatarEditTap(
+                  isUnlocked: isUnlocked,
+                  level: level,
+                  points: points,
                 ),
-                child: Icon(
-                  isUnlocked ? Icons.photo_camera_rounded : Icons.lock_rounded,
-                  size: 13,
-                  color: Colors.white,
+                child: Padding(
+                  // Padding memperbesar area sentuh badge kamera tanpa
+                  // mengubah posisi visualnya.
+                  padding: const EdgeInsets.all(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: isUnlocked
+                          ? const Color(0xFF059669)
+                          : const Color(0xFF64748B),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Icon(
+                      isUnlocked
+                          ? Icons.photo_camera_rounded
+                          : Icons.lock_rounded,
+                      size: 13,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
         ],
       ),
+    );
+  }
+
+  /// Menampilkan foto profil dari Firestore (base64).
+  ///
+  /// Nilai `photoUrl` lama yang masih berupa URL http tetap didukung agar
+  /// akun yang sempat memakai Firebase Storage tidak kehilangan fotonya.
+  Widget _buildAvatarImage({
+    required AppUser? user,
+    required String photoUrl,
+    required bool isGuest,
+    required String initial,
+  }) {
+    if (photoUrl.startsWith('http')) {
+      return Hero(
+        tag: 'profile-avatar-photo',
+        child: Image.network(
+          photoUrl,
+          key: const ValueKey('profile-avatar-photo'),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _buildAvatarPlaceholder(isGuest, initial),
+        ),
+      );
+    }
+
+    final userId = user?.id ?? '';
+    final bytesAsync = ref.watch(
+      avatarBytesProvider((userId: userId, marker: photoUrl)),
+    );
+
+    return bytesAsync.when(
+      data: (bytes) {
+        if (bytes == null || bytes.isEmpty) {
+          return _buildAvatarPlaceholder(isGuest, initial);
+        }
+        return Hero(
+          tag: 'profile-avatar-photo',
+          child: Image.memory(
+            bytes,
+            key: const ValueKey('profile-avatar-photo'),
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) =>
+                _buildAvatarPlaceholder(isGuest, initial),
+          ),
+        );
+      },
+      loading: () => const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: Color(0xFF059669),
+          ),
+        ),
+      ),
+      error: (_, _) => _buildAvatarPlaceholder(isGuest, initial),
     );
   }
 
@@ -443,6 +534,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     required bool isUnlocked,
     required int level,
     required int points,
+    required bool hasPhoto,
   }) {
     if (isGuest) {
       _showSnack('Masuk ke akun untuk menambahkan foto profil');
@@ -453,7 +545,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _showAvatarLockedDialog(level: level, points: points);
       return;
     }
+    // Sudah punya foto: ketukan pada avatar membuka tampilan besar.
+    if (hasPhoto) {
+      _openPhotoViewer();
+      return;
+    }
     _showAvatarOptionsSheet();
+  }
+
+  /// Ketukan pada badge kamera/lock di pojok avatar: langsung ke menu foto.
+  void _onAvatarEditTap({
+    required bool isUnlocked,
+    required int level,
+    required int points,
+  }) {
+    if (_isUploadingPhoto) return;
+    if (!isUnlocked) {
+      _showAvatarLockedDialog(level: level, points: points);
+      return;
+    }
+    _showAvatarOptionsSheet();
+  }
+
+  /// Membuka foto profil ukuran penuh.
+  Future<void> _openPhotoViewer() async {
+    final user = ref.read(authControllerProvider).value;
+    final marker = user?.photoUrl?.trim() ?? '';
+    if (user == null || marker.isEmpty) return;
+
+    final isNetwork = marker.startsWith('http');
+    final bytes = isNetwork
+        ? null
+        : ref
+            .read(avatarBytesProvider((userId: user.id, marker: marker)))
+            .value;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AvatarPhotoViewer(
+          title: user.displayName,
+          bytes: bytes,
+          networkUrl: isNetwork ? marker : null,
+          onEdit: _showAvatarOptionsSheet,
+        ),
+      ),
+    );
   }
 
   /// Ambang poin level minimum untuk membuka foto profil.
@@ -632,37 +768,130 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     try {
       picked = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 90,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 95,
       );
     } catch (_) {
       _showSnack('Tidak dapat membuka kamera/galeri');
       return;
     }
     if (picked == null) return;
-    await _uploadAvatar(picked.path);
+
+    // Siapkan gambar (decode + orientasi + perkecil) sebelum layar crop.
+    setState(() {
+      _isUploadingPhoto = true;
+      _uploadProgress = 0;
+    });
+
+    AvatarCropSource cropSource;
+    try {
+      cropSource = await prepareAvatarCropSource(picked.path);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+          _uploadProgress = null;
+        });
+      }
+      _showSnack('Foto tidak dapat dibaca. Coba foto lain.', isError: true);
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isUploadingPhoto = false;
+      _uploadProgress = null;
+    });
+
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute<Uint8List>(
+        builder: (_) => AvatarCropScreen(source: cropSource),
+      ),
+    );
+    if (cropped == null || cropped.isEmpty) return;
+    await _uploadAvatarBytes(cropped);
   }
 
-  Future<void> _uploadAvatar(String filePath) async {
+  Future<void> _uploadAvatarBytes(Uint8List bytes) async {
     final user = ref.read(authControllerProvider).value;
     if (user == null) return;
+    if (_isUploadingPhoto) return;
 
-    setState(() => _isUploadingPhoto = true);
+    setState(() {
+      _isUploadingPhoto = true;
+      _uploadProgress = 0;
+      _pendingAvatarBytes = bytes;
+    });
+
+    String? uploadedUrl;
     try {
-      final url = await ref
+      uploadedUrl = await ref
           .read(avatarServiceProvider)
-          .upload(userId: user.id, filePath: filePath);
-      await ref.read(authControllerProvider.notifier).updatePhotoUrl(url);
+          .uploadBytes(
+            userId: user.id,
+            bytes: bytes,
+            onProgress: (progress) {
+              if (!mounted) return;
+              setState(() => _uploadProgress = progress);
+            },
+          );
+
+      // Foto sudah tersimpan di Firestore; tahap ini hanya mencatat penanda
+      // versi ke dokumen profil.
+      try {
+        await ref
+            .read(authControllerProvider.notifier)
+            .updatePhotoUrl(uploadedUrl);
+      } catch (e) {
+        _showUploadError(
+          'Foto sudah tersimpan, tetapi gagal dicatat ke profil. Coba lagi.',
+          retryable: true,
+        );
+        return;
+      }
+
+      if (mounted) setState(() => _pendingAvatarBytes = null);
       _showSnack('Foto profil diperbarui');
+    } on AvatarUploadException catch (e) {
+      _showUploadError(e.message, retryable: e.retryable);
     } catch (e) {
-      _showSnack(
+      _showUploadError(
         e.toString().replaceFirst('Exception: ', ''),
-        isError: true,
+        retryable: true,
       );
     } finally {
-      if (mounted) setState(() => _isUploadingPhoto = false);
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+          _uploadProgress = null;
+        });
+      }
     }
+  }
+
+  /// Menampilkan error unggah dengan aksi "Coba lagi" bila memungkinkan.
+  void _showUploadError(String message, {bool retryable = false}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+
+    final pending = _pendingAvatarBytes;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFDC2626),
+        duration: const Duration(seconds: 8),
+        action: retryable && pending != null
+            ? SnackBarAction(
+                label: 'Coba lagi',
+                textColor: Colors.white,
+                onPressed: () => _uploadAvatarBytes(pending),
+              )
+            : null,
+      ),
+    );
   }
 
   Future<void> _removeAvatar() async {
