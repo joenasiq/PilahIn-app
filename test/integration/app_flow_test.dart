@@ -164,6 +164,13 @@ void main() {
       expect(find.text('Hasil Pemindaian'), findsWidgets);
       expect(find.text('Tidak ada gambar yang dipilih'), findsNothing);
 
+      // Popup streak muncul karena scan pertama menaikkan streak; tutup dulu
+      // agar tombol di bawahnya bisa ditekan.
+      if (find.text('Lanjutkan').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Lanjutkan'));
+        await tester.pumpAndSettle();
+      }
+
       // Panduan Lengkap
       final panduanFinder = find.text('Panduan Lengkap');
       expect(panduanFinder, findsWidgets);
