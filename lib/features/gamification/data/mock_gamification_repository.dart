@@ -35,7 +35,7 @@ class MockGamificationRepository implements GamificationRepository {
     return [
       // 6 unlocked
       AppBadge(
-        id: '1',
+        id: 'pahlawan_hijau',
         nama: 'Pahlawan Hijau',
         deskripsi: 'Mulai memilah sampah organik',
         kategori: 'organik',
@@ -47,7 +47,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 100,
       ),
       AppBadge(
-        id: '2',
+        id: 'pemilah_pemula',
         nama: 'Pemilah Pemula',
         deskripsi: '1 pemindaian pertama',
         kategori: 'umum',
@@ -59,7 +59,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 20,
       ),
       AppBadge(
-        id: '3',
+        id: 'api_semangat',
         nama: 'Api Semangat',
         deskripsi: '7 hari beruntun',
         kategori: 'streak',
@@ -71,7 +71,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 50,
       ),
       AppBadge(
-        id: '4',
+        id: 'raja_botol',
         nama: 'Raja Botol',
         deskripsi: '10 botol plastik terdeteksi',
         kategori: 'anorganik',
@@ -83,7 +83,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 80,
       ),
       AppBadge(
-        id: '5',
+        id: 'pengumpul_kertas',
         nama: 'Pengumpul Kertas',
         deskripsi: '20 kertas terdeteksi',
         kategori: 'anorganik',
@@ -95,7 +95,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 60,
       ),
       AppBadge(
-        id: '6',
+        id: 'pejuang_lingkungan',
         nama: 'Pejuang Lingkungan',
         deskripsi: '50 total pemindaian',
         kategori: 'umum',
@@ -109,7 +109,7 @@ class MockGamificationRepository implements GamificationRepository {
 
       // 9 locked
       AppBadge(
-        id: '7',
+        id: 'master_kompos',
         nama: 'Master Kompos',
         deskripsi: 'Pilah 50 sampah organik untuk membuka badge ini.',
         kategori: 'organik',
@@ -120,7 +120,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 100,
       ),
       AppBadge(
-        id: '8',
+        id: 'dewa_daur_ulang',
         nama: 'Dewa Daur Ulang',
         deskripsi: 'Pilah 100 sampah anorganik',
         kategori: 'anorganik',
@@ -131,7 +131,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 150,
       ),
       AppBadge(
-        id: '9',
+        id: 'legenda_streak',
         nama: 'Legenda Streak',
         deskripsi: '30 hari beruntun',
         kategori: 'streak',
@@ -142,7 +142,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 300,
       ),
       AppBadge(
-        id: '10',
+        id: 'penyelamat_bumi',
         nama: 'Penyelamat Bumi',
         deskripsi: '500 total pemindaian',
         kategori: 'umum',
@@ -153,7 +153,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 500,
       ),
       AppBadge(
-        id: '11',
+        id: 'ksatria_kaca',
         nama: 'Ksatria Kaca',
         deskripsi: '20 pecahan kaca',
         kategori: 'anorganik',
@@ -164,7 +164,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 75,
       ),
       AppBadge(
-        id: '12',
+        id: 'pecinta_sayur',
         nama: 'Pecinta Sayur',
         deskripsi: '100 sisa sayur',
         kategori: 'organik',
@@ -175,7 +175,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 80,
       ),
       AppBadge(
-        id: '13',
+        id: 'pemilah_setia',
         nama: 'Pemilah Setia',
         deskripsi: '100 hari beruntun',
         kategori: 'streak',
@@ -186,7 +186,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 1000,
       ),
       AppBadge(
-        id: '14',
+        id: 'guardian',
         nama: 'Guardian',
         deskripsi: '1000 total pemindaian',
         kategori: 'umum',
@@ -197,7 +197,7 @@ class MockGamificationRepository implements GamificationRepository {
         hadiahPoin: 2000,
       ),
       AppBadge(
-        id: '15',
+        id: 'organik_spesialis',
         nama: 'Organik Spesialis',
         deskripsi: '500 organik',
         kategori: 'organik',

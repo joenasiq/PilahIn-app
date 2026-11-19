@@ -17,19 +17,15 @@ class StreakCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFFDF5), // Soft amber tint
-            Color(0xFFFFF7ED), // Light orange tint
-            Color(0xFFFEF3C7), // Warm yellow tint
+            Color(0xFFFFFCF5), // Krim sangat lembut
+            Color(0xFFFFF6E8), // Hangat tipis
           ],
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFFDBA74).withValues(alpha: 0.8),
-          width: 1.5,
-        ),
+        border: Border.all(color: const Color(0xFFFDE4BE), width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFEA580C).withValues(alpha: 0.08),
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -39,7 +35,7 @@ class StreakCard extends StatelessWidget {
         padding: const EdgeInsets.all(18.0),
         child: Column(
           children: [
-            // Baris Atas: Ikon Api Membara + Judul & Deskripsi
+            // Baris Atas: Ikon Api + Judul & Deskripsi
             Row(
               children: [
                 // Ikon Api Bergradasi
@@ -52,14 +48,14 @@ class StreakCard extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color(0xFFFBBF24), // Amber
-                        Color(0xFFF97316), // Orange
-                        Color(0xFFEF4444), // Crimson Fire
+                        Color(0xFFFCD34D), // Amber terang
+                        Color(0xFFF59E0B), // Amber
+                        Color(0xFFEA580C), // Oranye hangat
                       ],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFF97316).withValues(alpha: 0.4),
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.32),
                         blurRadius: 12,
                         spreadRadius: 1,
                         offset: const Offset(0, 4),
@@ -79,23 +75,19 @@ class StreakCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            '$streakDays Hari Beruntun!',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF9A3412),
-                              fontSize: 17,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        '$streakDays Hari Beruntun!',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF78350F),
+                          fontSize: 17,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         'Pertahankan konsistensi memilah sampah Anda.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF78350F).withValues(alpha: 0.85),
+                          color: const Color(0xFF92400E).withValues(alpha: 0.75),
                           fontWeight: FontWeight.w500,
                           fontSize: 12,
                         ),
@@ -113,10 +105,7 @@ class StreakCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: const Color(0xFFFED7AA),
-                  width: 1,
-                ),
+                border: Border.all(color: const Color(0xFFFEF0D5), width: 1),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -131,35 +120,60 @@ class StreakCard extends StatelessWidget {
                           shape: BoxShape.circle,
                           gradient: isDone
                               ? const LinearGradient(
-                                  colors: [Color(0xFFF97316), Color(0xFFEF4444)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFFBBF24),
+                                    Color(0xFFF97316),
+                                  ],
                                 )
                               : null,
-                          color: isDone ? null : const Color(0xFFF3F4F6),
+                          color: isDone ? null : const Color(0xFFF8FAFC),
                           border: isDone
                               ? Border.all(color: Colors.white, width: 1.5)
-                              : Border.all(color: Colors.grey.shade300, width: 1),
+                              : Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                  width: 1,
+                                ),
                           boxShadow: isDone
                               ? [
                                   BoxShadow(
-                                    color: const Color(0xFFF97316).withValues(alpha: 0.3),
+                                    color: const Color(0xFFF59E0B)
+                                        .withValues(alpha: 0.28),
                                     blurRadius: 6,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ]
                               : null,
                         ),
-                        child: Icon(
-                          isDone ? Icons.local_fire_department : Icons.circle_outlined,
-                          size: isDone ? 18 : 12,
-                          color: isDone ? Colors.white : Colors.grey.shade400,
-                        ),
+                        child: isDone
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                                color: Colors.white,
+                              )
+                            : Center(
+                                child: Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFCBD5E1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         dayLabels[index],
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isDone ? FontWeight.bold : FontWeight.w500,
-                          color: isDone ? const Color(0xFFC2410C) : Colors.grey.shade500,
+                          fontWeight: isDone
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: isDone
+                              ? const Color(0xFFB45309)
+                              : const Color(0xFF94A3B8),
                         ),
                       ),
                     ],

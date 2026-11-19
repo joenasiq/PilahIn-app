@@ -222,6 +222,7 @@ lib/features/home/presentation/
   home_provider.dart                             -- routing home repository + poin UI (userProgress)
 firebase/
   firestore.rules                                -- security rules final (deploy via Console, §8)
+  storage.rules                                  -- cadangan rules Storage (tidak dipakai; lihat §9)
 ```
 
 Interface: `AuthRepository.register` (Fase 4) dan 4 method agregasi
@@ -262,6 +263,14 @@ service cloud.firestore {
 
 - **Firebase project**: `pilahin-98b19`. Android app terdaftar (`com.example.pilahin_app`),
   Authentication Email/Password aktif, Firestore dibuat (test mode).
+- **Foto profil (Firestore)**: Firebase Storage mensyaratkan paket Blaze sejak
+  Okt 2024, sedangkan project ini masih Spark. Karena itu foto disimpan sebagai
+  base64 di dokumen terpisah `users/{uid}/meta/avatar` (`base64`, `bytes`,
+  `marker`, `updated_at`). Foto dikompres ke 512 px JPEG 85 (turun ke 70/55/40
+  bila > 700 KB) sebelum disimpan. `users/{uid}.photo_url` hanya berisi penanda
+  versi `fs:<epochMillis>`; UI memuat byte lewat `avatarBytesProvider`.
+  Dokumen terpisah dipakai agar pembacaan profil tidak ikut mengunduh gambar.
+  `firebase/storage.rules` disimpan sebagai cadangan bila nanti pindah ke Blaze.
 - **Akun demo**: `kel5pbl@gmail.com` / `pilahln123` — WAJIB dibuat di konsol Firebase
   (Authentication → Users → Add user) agar login demo berfungsi.
 - **Target app: Android**. `Firebase.initializeApp()` tanpa options membaca

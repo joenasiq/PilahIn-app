@@ -127,6 +127,12 @@ void main() {
     );
   }
 
+  Future<void> dismissStreakDialog(WidgetTester tester) async {
+    if (find.text('Lanjutkan').evaluate().isEmpty) return;
+    await tester.tap(find.text('Lanjutkan'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('Menampilkan hasil cardboard: Anorganik dan chip Kardus', (
     tester,
   ) async {
@@ -234,6 +240,7 @@ void main() {
       );
       mockController.setCardboard();
       await tester.pumpAndSettle();
+      await dismissStreakDialog(tester);
 
       final btn = find.text('Panduan Lengkap');
       expect(btn, findsOneWidget);
@@ -256,4 +263,46 @@ void main() {
       expect(find.byType(ResultScreen), findsOneWidget);
     },
   );
+
+  testWidgets('Popup streak muncul saat streak bertambah', (tester) async {
+    await tester.pumpWidget(
+      await createTestWidget(const ResultScreen(imagePath: 'dummy.jpg')),
+    );
+    mockController.setBiological();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Streak Bertambah!'), findsOneWidget);
+    expect(find.text('1 Hari Beruntun'), findsOneWidget);
+
+    await dismissStreakDialog(tester);
+    expect(find.text('Streak Bertambah!'), findsNothing);
+  });
+
+  testWidgets('Popup streak tidak muncul bila streak tidak bertambah', (
+    tester,
+  ) async {
+    final repository = FakeHistoryRepository();
+    await repository.add(
+      HistoryEntry(
+        scanKey: 'today_plastic',
+        userId: AppConstants.demoUserId,
+        wasteType: WasteType.plastic,
+        confidence: 0.9,
+        isUncertain: false,
+        pointsEarned: 10,
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    await tester.pumpWidget(
+      await createTestWidget(
+        const ResultScreen(imagePath: 'dummy.jpg'),
+        repository: repository,
+      ),
+    );
+    mockController.setBiological();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Streak Bertambah!'), findsNothing);
+  });
 }

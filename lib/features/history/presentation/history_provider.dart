@@ -11,6 +11,8 @@ import '../../../core/waste/waste_types.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../gamification/data/points_ledger_service.dart';
 import '../../gamification/domain/points_policy.dart';
+import '../../gamification/domain/progress_calculator.dart';
+import '../../gamification/domain/streak_update.dart';
 import '../../gamification/presentation/gamification_provider.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/domain/waste_category.dart';
@@ -92,6 +94,17 @@ class HistoryState {
       searchQuery: searchQuery,
     );
   }
+}
+
+/// Hasil penyimpanan satu sesi pemindaian.
+///
+/// Selain poin, membawa perubahan streak agar layar Hasil bisa menampilkan
+/// popup perayaan ketika streak bertambah.
+class ScanSaveResult {
+  const ScanSaveResult({required this.points, required this.streak});
+
+  final ScanPointResult points;
+  final StreakUpdate streak;
 }
 
 class HistoryNotifier extends Notifier<HistoryState> {
@@ -267,8 +280,19 @@ class HistoryNotifier extends Notifier<HistoryState> {
   /// baris riwayat terpisah, dan poin dihitung per item. Bila tidak ada objek
   /// yang valid, hasil utama (tidak yakin) tetap disimpan satu kali seperti
   /// perilaku sebelumnya.
-  Future<ScanPointResult> saveScanToHistory(ClassificationResult result) async {
+  ///
+  /// Hasilnya juga memuat perubahan streak scan, dipakai layar Hasil untuk
+  /// memunculkan popup "streak bertambah".
+  Future<ScanSaveResult> saveScanToHistory(ClassificationResult result) async {
     try {
+      final progression = ref.read(progressionServiceProvider);
+
+      // Tamu tidak punya cloud, jadi streak dihitung lokal: ambil nilai
+      // sebelum simpan supaya bisa dibandingkan dengan nilai sesudahnya.
+      final previousStreak = progression == null
+          ? await _currentStreakDays()
+          : 0;
+
       final valid = result.detections.where((d) => !d.isUncertain).toList();
       final items = valid.isEmpty ? [result] : valid;
 
@@ -286,27 +310,41 @@ class HistoryNotifier extends Notifier<HistoryState> {
         totalPoints += pointResult.points;
       }
 
-      final progression = ref.read(progressionServiceProvider);
+      var streak = const StreakUpdate.unknown();
       if (progression != null) {
         try {
-          await progression.recomputeAll();
+          streak = await progression.recomputeAll();
         } catch (e) {
           developer.log('Recompute gamifikasi gagal: $e');
         }
+      } else {
+        streak = StreakUpdate(
+          previous: previousStreak,
+          current: await _currentStreakDays(),
+        );
       }
 
       await refresh();
-      return ScanPointResult(
-        points: totalPoints,
-        reason: first!.reason,
-        pointsEarnedToday: first.pointsEarnedToday,
-        dailyLimit: first.dailyLimit,
+      return ScanSaveResult(
+        points: ScanPointResult(
+          points: totalPoints,
+          reason: first!.reason,
+          pointsEarnedToday: first.pointsEarnedToday,
+          dailyLimit: first.dailyLimit,
+        ),
+        streak: streak,
       );
     } catch (e) {
       // Kegagalan menyimpan tidak boleh mengganggu layar Hasil
       developer.log('Riwayat gagal disimpan: $e');
       throw Exception('Riwayat gagal disimpan');
     }
+  }
+
+  /// Streak hari beruntun saat ini (dihitung dari seluruh riwayat akun).
+  Future<int> _currentStreakDays() async {
+    final entries = await _repository.getAll(userId: _userId);
+    return computeStreak(entries);
   }
 
   Future<ScanPointResult> _saveItem(

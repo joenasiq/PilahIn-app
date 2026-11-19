@@ -4,11 +4,19 @@ class AppUser {
   final String displayName;
   final bool isGuest;
 
+  /// Penanda versi foto profil (bukan URL).
+  ///
+  /// Format `fs:<epochMillis>` untuk foto yang disimpan sebagai base64 di
+  /// Firestore (`users/{uid}/meta/avatar`). Nilai http:// lama tetap
+  /// didukung untuk kompatibilitas.
+  final String? photoUrl;
+
   const AppUser({
     required this.id,
     required this.email,
     required this.displayName,
     this.isGuest = false,
+    this.photoUrl,
   });
 
   factory AppUser.guest() {
@@ -17,6 +25,23 @@ class AppUser {
       email: '',
       displayName: 'Tamu',
       isGuest: true,
+    );
+  }
+
+  AppUser copyWith({
+    String? id,
+    String? email,
+    String? displayName,
+    bool? isGuest,
+    String? photoUrl,
+    bool clearPhotoUrl = false,
+  }) {
+    return AppUser(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      isGuest: isGuest ?? this.isGuest,
+      photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
     );
   }
 }

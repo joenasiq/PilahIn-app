@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../history/domain/history_entry.dart';
 import '../domain/progress_calculator.dart';
 import '../domain/reference_data.dart';
+import '../domain/streak_update.dart';
 
 /// Layanan recompute gamifikasi akun (cloud).
 ///
@@ -41,7 +42,10 @@ class ProgressionService {
       _firestore.collection('users').doc(uid).collection('missions');
 
   /// Hitung ulang seluruh gamifikasi user dan tulis balik dalam 1 batch.
-  Future<void> recomputeAll() async {
+  ///
+  /// Mengembalikan perubahan streak scan (nilai lama vs nilai baru) supaya
+  /// pemanggil bisa memunculkan popup perayaan ketika streak bertambah.
+  Future<StreakUpdate> recomputeAll() async {
     // 1. Muat seluruh scan user (sumber kebenaran agregasi).
     final scanSnap = await _scans.get();
     final scans = <HistoryEntry>[];
@@ -162,6 +166,7 @@ class ProgressionService {
     final totalPoints = scanPointsSum + badgeRewardSum + missionRewardSum;
     final storedBest = (userData['best_streak'] as int?) ?? 0;
     final bestStreak = storedBest > agg.streak ? storedBest : agg.streak;
+    final previousStreak = (userData['current_streak'] as int?) ?? 0;
 
     batch.set(
       _userDoc,
@@ -175,5 +180,7 @@ class ProgressionService {
     );
 
     await batch.commit();
+
+    return StreakUpdate(previous: previousStreak, current: agg.streak);
   }
 }
