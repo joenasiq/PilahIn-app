@@ -160,7 +160,7 @@ int missionProgress(MissionDefinition def, List<HistoryEntry> periodScans) {
 /// poin seluruh scan + hadiah badge terbuka + hadiah misi periode
 /// berjalan yang selesai. Untuk akun, hitungannya ada di
 /// `ProgressionService` (misi semua periode ikut terhitung).
-int computeDerivedPoints(Iterable<HistoryEntry> scans) {
+int computeDerivedPoints(Iterable<HistoryEntry> scans, {DateTime? now}) {
   final list = scans.toList();
   var points = 0;
   for (final e in list) {
@@ -173,7 +173,8 @@ int computeDerivedPoints(Iterable<HistoryEntry> scans) {
     }
   }
   for (final def in kMissions) {
-    if (missionProgress(def, scansInPeriod(list, def)) >= def.target) {
+    final periodScans = scansInPeriod(list, def, now: now);
+    if (missionProgress(def, periodScans) >= def.target) {
       points += def.rewardPoints;
     }
   }

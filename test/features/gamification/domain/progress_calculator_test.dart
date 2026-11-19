@@ -257,7 +257,7 @@ void main() {
 
   group('computeDerivedPoints (poin tamu)', () {
     test('tanpa scan = 0', () {
-      expect(computeDerivedPoints(const []), 0);
+      expect(computeDerivedPoints(const [], now: _now), 0);
     });
 
     test('poin scan + hadiah badge + hadiah misi harian', () {
@@ -269,7 +269,7 @@ void main() {
         entry(_now, wasteType: WasteType.biological, i: 1),
         entry(_now, wasteType: WasteType.biological, i: 2),
       ];
-      expect(computeDerivedPoints(scans), 45 + 20 + 30);
+      expect(computeDerivedPoints(scans, now: _now), 45 + 20 + 30);
     });
 
     test('badge kategori ikut dihitung saat target tercapai', () {
@@ -279,7 +279,7 @@ void main() {
         for (var i = 0; i < 10; i++)
           entry(_now, wasteType: WasteType.biological, i: i),
       ];
-      expect(computeDerivedPoints(scans), 150 + 100 + 20 + 30);
+      expect(computeDerivedPoints(scans, now: _now), 150 + 100 + 20 + 30);
     });
   });
 }

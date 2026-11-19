@@ -1,0 +1,39 @@
+// Security rules Firebase Storage PilahIn — foto profil.
+//
+// Foto profil disimpan di `avatars/{uid}/profile.jpg`. Aturan:
+// - Hanya pemilik akun (request.auth.uid == uid) yang boleh mengunggah,
+//   mengganti, atau menghapus fotonya sendiri.
+// - Pengguna yang sudah login boleh membaca (foto tampil di layar profil).
+// - Ukuran dibatasi 5 MB dan harus bertipe gambar, sebagai pengaman kalau
+//   kompresi di klien gagal.
+// - Path lain ditolak.
+//
+// CARA DEPLOY:
+// 1. Firebase Console -> Storage -> Rules -> paste isi file ini.
+//    (atau: `firebase deploy --only storage:rules` jika pakai Firebase CLI)
+// 2. Pastikan bucket `pilahin-98b19.firebasestorage.app` sudah aktif
+//    (Storage -> Get Started) sebelum mengunggah foto.
+//
+// Catatan: `allow write` tidak dipakai karena `request.resource` bernilai
+// null saat delete, sehingga ukuran/contentType harus dicek terpisah untuk
+// create/update.
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /avatars/{uid}/profile.jpg {
+      allow read: if request.auth != null;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

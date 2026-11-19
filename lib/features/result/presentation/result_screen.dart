@@ -8,9 +8,11 @@ import '../../scan/presentation/classification_controller.dart';
 import '../../scan/domain/waste_category.dart';
 import '../../scan/domain/classification_result.dart';
 import '../../scan/data/scan_image_cropper.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ml_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../gamification/domain/points_policy.dart';
+import '../../gamification/presentation/widgets/streak_reward_dialog.dart';
 import '../data/guidance_content.dart';
 import '../../history/presentation/history_provider.dart';
 import 'widgets/eco_impact_card.dart';
@@ -69,9 +71,17 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           ref
               .read(historyNotifierProvider.notifier)
               .saveScanToHistory(next.value!)
-              .then((pointResult) {
+              .then((outcome) async {
                 if (!context.mounted) return;
-                setState(() => _pointResult = pointResult);
+                setState(() => _pointResult = outcome.points);
+
+                // Rayakan streak yang bertambah (termasuk scan pertama).
+                if (!AppConstants.gamificationEnabled) return;
+                if (!outcome.streak.increased) return;
+                await StreakRewardDialog.show(
+                  context,
+                  streakDays: outcome.streak.current,
+                );
               })
               .catchError((e) {
                 if (!context.mounted) return;

@@ -79,6 +79,9 @@ void main() {
       // 850 poin dasar demo + 2 poin hadiah login hari pertama
       expect(find.text('852 Poin'), findsOneWidget);
       expect(find.text('7 Hari Beruntun!'), findsOneWidget);
+      // Badge yang sudah didapat tampil di Beranda (mock punya 6 badge terbuka).
+      expect(find.text('Lencana Saya'), findsOneWidget);
+      expect(find.text('Pahlawan Hijau'), findsOneWidget);
       expect(find.text('Pilah 3 Sampah Organik'), findsOneWidget);
       // Card misi di Beranda punya deskripsi dan tombol menjalankan misi.
       expect(

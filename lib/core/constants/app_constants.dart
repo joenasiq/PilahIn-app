@@ -37,4 +37,8 @@ class AppConstants {
 
   // Media Flag
   static bool showMediaPlaceholders = true;
+
+  /// Level minimum untuk membuka fitur foto profil.
+  /// Level 2 ('Juru Kompos') tercapai pada 300 poin.
+  static const int avatarUnlockLevel = 2;
 }

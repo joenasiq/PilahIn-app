@@ -7,6 +7,8 @@ import 'package:pilahin_app/core/constants/app_constants.dart';
 import 'package:pilahin_app/features/auth/presentation/auth_controller.dart';
 import 'package:pilahin_app/features/auth/presentation/register_screen.dart';
 
+import '../helpers/fake_auth_repository.dart';
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -16,7 +18,10 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          authRepositoryProvider.overrideWithValue(FakeAuthRepository(prefs)),
+        ],
         child: const MaterialApp(home: RegisterScreen()),
       ),
     );
@@ -71,7 +76,7 @@ void main() {
         expect(find.text('Kata sandi minimal 8 karakter'), findsOneWidget);
 
         // Pendaftaran dibatalkan: akun tidak tersimpan dan sesi tidak dibuat.
-        expect(prefs.getString(AppConstants.keyRegisteredAccounts), isNull);
+        expect(prefs.getString(AppConstants.keyUserEmail), isNull);
         expect(prefs.getBool(AppConstants.keyUserSession), isNull);
       },
     );
@@ -89,7 +94,7 @@ void main() {
       await tapDaftar(tester);
 
       expect(find.text('Konfirmasi kata sandi tidak cocok'), findsOneWidget);
-      expect(prefs.getString(AppConstants.keyRegisteredAccounts), isNull);
+      expect(prefs.getString(AppConstants.keyUserEmail), isNull);
     });
 
     testWidgets('pendaftaran valid menyimpan akun dan membuat sesi', (
@@ -108,9 +113,9 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
-      final stored = prefs.getString(AppConstants.keyRegisteredAccounts) ?? '';
-      expect(stored, contains('budi@email.com'));
-      expect(stored, isNot(contains('rahasia123')));
+      final storedEmail = prefs.getString(AppConstants.keyUserEmail) ?? '';
+      expect(storedEmail, 'budi@email.com');
+      expect(storedEmail, isNot(contains('rahasia123')));
       expect(prefs.getBool(AppConstants.keyUserSession), isTrue);
       expect(prefs.getString(AppConstants.keyUserName), 'Budi');
     });

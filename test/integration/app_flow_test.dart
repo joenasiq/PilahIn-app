@@ -147,12 +147,9 @@ void main() {
 
       // Pindai
       expect(find.text('Beranda'), findsWidgets); // Ensure we reached home
-      await tester.tap(
-        find.descendant(
-          of: find.byType(BottomNavigationBar),
-          matching: find.byIcon(Icons.crop_free),
-        ),
-      ); // Bottom Nav
+      // Item nav "Pindai" ikonnya transparan dan tertutup FAB docked,
+      // jadi tap langsung ke FAB untuk pindah ke tab Pindai.
+      await tester.tap(find.byType(FloatingActionButton)); // Bottom Nav
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
@@ -166,6 +163,13 @@ void main() {
       // Hasil
       expect(find.text('Hasil Pemindaian'), findsWidgets);
       expect(find.text('Tidak ada gambar yang dipilih'), findsNothing);
+
+      // Popup streak muncul karena scan pertama menaikkan streak; tutup dulu
+      // agar tombol di bawahnya bisa ditekan.
+      if (find.text('Lanjutkan').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Lanjutkan'));
+        await tester.pumpAndSettle();
+      }
 
       // Panduan Lengkap
       final panduanFinder = find.text('Panduan Lengkap');

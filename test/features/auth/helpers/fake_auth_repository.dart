@@ -97,6 +97,15 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AppUser> updatePhotoUrl(String? photoUrl) async {
+    final current = await getCurrentUser();
+    if (current == null) {
+      throw Exception('Sesi berakhir. Silakan masuk kembali.');
+    }
+    return current.copyWith(photoUrl: photoUrl, clearPhotoUrl: photoUrl == null);
+  }
+
+  @override
   Future<AppUser?> getCurrentUser() async {
     final hasSession = _prefs.getBool(AppConstants.keyUserSession) ?? false;
     if (!hasSession) return null;

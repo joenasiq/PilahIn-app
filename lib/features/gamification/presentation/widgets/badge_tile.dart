@@ -1,41 +1,28 @@
 import 'package:flutter/material.dart';
 import '../../domain/badge.dart';
+import '../badge_colors.dart';
+import '../badge_icons.dart';
 
 class BadgeTile extends StatelessWidget {
   final AppBadge badge;
 
   const BadgeTile({super.key, required this.badge});
 
-  IconData _getIcon(String key) {
-    switch (key) {
-      case 'eco': return Icons.eco;
-      case 'star': return Icons.star;
-      case 'local_fire_department': return Icons.local_fire_department;
-      case 'water_drop': return Icons.water_drop;
-      case 'article': return Icons.article;
-      case 'public': return Icons.public;
-      case 'compost': return Icons.eco_outlined; // approximate
-      case 'recycling': return Icons.recycling;
-      case 'wine_bar': return Icons.wine_bar;
-      case 'restaurant': return Icons.restaurant;
-      case 'workspace_premium': return Icons.workspace_premium;
-      case 'shield': return Icons.shield;
-      case 'spa': return Icons.spa;
-      case 'language': return Icons.language;
-      default: return Icons.emoji_events;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isOpen = badge.isOpen;
+    final colors = badgeColorFor(badge.id);
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isOpen ? Colors.green.shade50 : Colors.grey.shade100,
+        color: isOpen ? colors.start.withValues(alpha: 0.08) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isOpen ? Colors.green.shade200 : Colors.transparent),
+        border: Border.all(
+          color: isOpen
+              ? colors.start.withValues(alpha: 0.25)
+              : Colors.transparent,
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -43,12 +30,19 @@ class BadgeTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isOpen ? Colors.white : Colors.grey.shade300,
               shape: BoxShape.circle,
+              gradient: isOpen
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [colors.start, colors.end],
+                    )
+                  : null,
+              color: isOpen ? null : Colors.grey.shade300,
             ),
             child: Icon(
-              isOpen ? _getIcon(badge.iconKey) : Icons.lock,
-              color: isOpen ? Colors.green : Colors.grey,
+              isOpen ? badgeIconFor(badge.iconKey) : Icons.lock,
+              color: isOpen ? Colors.white : Colors.grey,
               size: 32,
             ),
           ),
@@ -65,12 +59,16 @@ class BadgeTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: isOpen ? Colors.green : Colors.grey.shade400,
+              color: isOpen ? colors.end : Colors.grey.shade400,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               isOpen ? 'Terbuka' : 'Terkunci',
-              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(height: 8),

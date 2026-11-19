@@ -84,6 +84,15 @@ class AuthController extends AsyncNotifier<AppUser?> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  /// Memperbarui foto profil akun aktif tanpa mengubah state loading
+  /// (agar UI profil tidak berkedip). Melempar error bila gagal agar
+  /// pemanggil bisa menampilkan pesan.
+  Future<void> updatePhotoUrl(String? photoUrl) async {
+    final repo = ref.read(authRepositoryProvider);
+    final user = await repo.updatePhotoUrl(photoUrl);
+    state = AsyncValue.data(user);
+  }
 }
 
 final authControllerProvider = AsyncNotifierProvider<AuthController, AppUser?>(
