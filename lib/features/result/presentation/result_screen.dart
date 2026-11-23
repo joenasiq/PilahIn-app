@@ -30,6 +30,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   ScanPointResult? _pointResult;
   int selectedObjectIndex = 0;
   double? _imageAspect; // lebar / tinggi gambar asli
+  ClassificationResult? _lastSavedResult;
 
   @override
   void initState() {
@@ -67,6 +68,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
       classificationControllerProvider,
       (previous, next) {
         if (next is AsyncData && next.value != null) {
+          if (identical(_lastSavedResult, next.value)) return;
+          _lastSavedResult = next.value;
           setState(() => selectedObjectIndex = 0);
           ref
               .read(historyNotifierProvider.notifier)
@@ -302,13 +305,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 children: [
                   Image.file(
                     file,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) =>
                         _buildImageFallback(),
                   ),
                   // Kotak terpilih digambar terakhir agar badge-nya di atas.
-                  // Jika objek terbaik memiliki confidence < 0.15 (non-sampah),
-                  // jangan gambar kotak bounding box di atas foto.
+                  // Jika objek terbaik memiliki confidence < 0.20 (non-sampah),
+                  // jangan gambar kotak bounding box palsu di atas foto.
                   if (detections.isNotEmpty &&
                       detections.first.confidence >= 0.20)
                     for (final pass in [false, true])
